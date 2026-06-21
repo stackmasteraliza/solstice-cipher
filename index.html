@@ -225,7 +225,8 @@
       <div class="big-score" id="over-score">0</div>
       <div class="result-label">light gathered</div>
       <div class="newbest" id="newbest"></div>
-      <div class="cta" id="overCta">Chase the sun again ▸</div>
+      <div class="cta" id="overContinue" style="margin-right:10px">Continue ▸</div>
+      <div class="cta ghost" id="overCta" style="background:rgba(255,255,255,0.1); color:#fff; box-shadow:none">Restart from Level 1 ▸</div>
       <div class="menu-link" id="overMenu">change difficulty</div>
     </div>
   </div>
@@ -558,6 +559,7 @@
     if (localStorage.getItem("solstice-tut") === "done") start(); else startPractice(); };
   $("startTut").onclick = (e) => { e.stopPropagation(); startPractice(); };
   $("overCta").onclick = (e) => { e.stopPropagation(); start(); };
+  $("overContinue").onclick = (e) => { e.stopPropagation(); startAtLevel(G.lastLevel || 1); };
   $("winCta").onclick = (e) => { e.stopPropagation(); start(); };
   $("winEndless").onclick = (e) => { e.stopPropagation(); startEndless(); };
   $("luCta").onclick = (e) => { e.stopPropagation(); nextLevel(); };
@@ -587,6 +589,18 @@
     blip(523, "sine", 0.12); setTimeout(() => blip(784, "sine", 0.16), 90);
     musicStart();
     showCoach("🖱️ <b>Move your mouse</b> to guide your light and gather the glowing motes", 5);
+  }
+
+  // ---------- continue from a checkpoint level ----------
+  function startAtLevel(lv) {
+    start();                                   // full reset, then jump to the chosen level
+    G.level = lv; $("level").textContent = lv;
+    G.tipShadow = true; G.tipNova = true; hideCoach();
+    G.brightness = 0.7; G.combo = 0; G.comboTimer = 0; updateCombo();
+    G.motes = []; G.shadows = []; G.powerups = [];
+    resetLevelStats();
+    if (isBossLevel(lv)) { startBossBriefing(); }
+    else { G.banner = 2.0; G.bannerText = "LEVEL " + lv; G.bannerSub = "Task: " + obj().desc; }
   }
 
   // ---------- endless mode ----------
@@ -736,7 +750,11 @@
       winFanfare();
     } else {
       $("newbest").textContent = (G.score >= G.best && G.score > 0) ? "★ NEW BEST ★" : "";
-      $("over-level").textContent = G.level; $("over-score").textContent = G.score;
+      $("over-level").textContent = G.endless ? "∞" : G.level; $("over-score").textContent = G.score;
+      G.lastLevel = G.level;                              // checkpoint for "Continue"
+      const canContinue = !G.endless && G.level > 1;
+      $("overContinue").style.display = canContinue ? "inline-block" : "none";
+      $("overContinue").textContent = "Continue from Level " + G.level + " ▸";
       $("over").classList.remove("hidden");
       loseSound();
     }
