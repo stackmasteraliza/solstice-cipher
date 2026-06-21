@@ -9,7 +9,7 @@
 *The longest day of the year, and the dark wants it back. Glide your light, gather the sun's motes,*
 *grab power-ups, survive the Solstice Turn, and break two beasts of night.*
 
-[**▶ Play it**](#-run-it) · [Power-ups](#-power-ups) · [How it's built](#-built-with)
+[**▶ Play it live**](https://stackmasteraliza.github.io/solstice-cipher/) · [**🎬 Watch the demo**](https://youtu.be/n6lRqo1CBSo) · [Power-ups](#-power-ups) · [How it's built](#-built-with)
 
 </div>
 

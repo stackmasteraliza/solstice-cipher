@@ -26,9 +26,9 @@ It connects to the theme on every axis: **the solstice** (longest day, the Turn)
 
 ## Video Demo
 
-<!-- Record a 60–90s screen capture with a voiceover: opening practice → Level 1 combos → grab a power-up → the Solstice Turn → the boss + Decode the Dawn → the DAWN win screen. Drop the link below or set it as the cover video. -->
+{% embed https://youtu.be/n6lRqo1CBSo %}
 
-`[ Add your demo video here ]`
+▶ Watch the demo: https://youtu.be/n6lRqo1CBSo
 
 ## Code
 
