@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>SOLSTICE — feed the light, hold back the night</title>
+<meta name="description" content="SOLSTICE — a juicy arcade game for the June Solstice & an ode to Alan Turing. Glide your light, gather sun motes, grab power-ups, and climb 20 days through two bosses." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='40%25' cy='38%25'%3E%3Cstop offset='0' stop-color='%23fff7d6'/%3E%3Cstop offset='0.55' stop-color='%23ffd24a'/%3E%3Cstop offset='1' stop-color='%23ff7a3d'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='%230b1030'/%3E%3Ccircle cx='32' cy='32' r='16' fill='url(%23g)'/%3E%3Cg stroke='%23ffd24a' stroke-width='3' stroke-linecap='round'%3E%3Cline x1='32' y1='4' x2='32' y2='12'/%3E%3Cline x1='32' y1='52' x2='32' y2='60'/%3E%3Cline x1='4' y1='32' x2='12' y2='32'/%3E%3Cline x1='52' y1='32' x2='60' y2='32'/%3E%3C/g%3E%3C/svg%3E" />
+<meta property="og:title" content="SOLSTICE — feed the light, hold back the night" />
+<meta property="og:description" content="A juicy 20-level arcade game for the June Solstice Game Jam, and an ode to Alan Turing." />
+<meta property="og:image" content="og.svg" />
+<style>
+  :root { --night: 0.45; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #05060f; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #fff7e6; cursor: none; touch-action: none; user-select: none;
+  }
+  canvas { display: block; position: fixed; inset: 0; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 3;
+    padding: 18px 22px; display: flex; flex-direction: column; justify-content: space-between;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.55); }
+  .hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  #score { font-size: 46px; font-weight: 800; line-height: 0.95; font-variant-numeric: tabular-nums; }
+  #combo { font-size: 17px; font-weight: 700; color: #ffd24a; min-height: 22px; transition: transform .12s ease; }
+  .right { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; margin-top: 44px; }
+  .pill { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; opacity: 0.85; }
+  .pill b { font-size: 18px; font-weight: 800; opacity: 1; }
+  #diffTag { font-size: 11px; letter-spacing: 2px; opacity: 0.8; }
+
+  /* level progress bar (very top) */
+  #lvlbar { position: fixed; top: 0; left: 0; right: 0; height: 5px; z-index: 4;
+    background: rgba(255,255,255,0.08); pointer-events: none; }
+  #lvlbar > i { display: block; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #c98bff, #ffd24a); box-shadow: 0 0 12px #ffd24a; transition: width .2s ease; }
+  #objective { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 4;
+    pointer-events: none; font-size: 13.5px; font-weight: 700; letter-spacing: 0.4px;
+    padding: 7px 16px; border-radius: 99px; white-space: nowrap;
+    background: rgba(8,10,26,0.5); border: 1px solid rgba(255,255,255,0.14);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6); backdrop-filter: blur(6px); }
+  #objective b { color: #ffd24a; }
+  #objective.done { color: #8affc1; border-color: rgba(140,255,193,0.5); }
+  #objective.hidden { display: none; }
+
+  /* daylight meter (bottom) */
+  .meter-wrap { width: 100%; display: flex; align-items: center; gap: 12px; }
+  .meter { flex: 1; height: 12px; border-radius: 99px; background: rgba(0,0,0,0.4); overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.18); box-shadow: inset 0 1px 6px rgba(0,0,0,0.5); }
+  .meter > i { display: block; height: 100%; width: 50%;
+    background: linear-gradient(90deg, #ff7a3d, #ffd24a, #fff3c4); box-shadow: 0 0 16px #ffce5a; transition: width .12s linear; }
+  .meter-label { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.75; white-space: nowrap; }
+  .meters { display: flex; flex-direction: column; gap: 8px; }
+  #novabar { background: linear-gradient(90deg, #48d1ff, #b58bff, #fff) !important; box-shadow: 0 0 16px #7ab8ff !important; }
+  #novaHint { min-width: 150px; text-align: left; transition: color .2s; }
+  .nova-pips { display: flex; gap: 3px; }
+  .nova-pips b { font-size: 16px; line-height: 1; color: rgba(255,255,255,0.22); transition: color .2s, text-shadow .2s; }
+  .nova-pips b.on { color: #7ec8ff; text-shadow: 0 0 8px #7ab8ff; }
+  .nova-wrap.ready { animation: novaPulse 0.9s ease-in-out infinite; }
+  .nova-wrap.ready #novaHint { color: #bfe9ff; opacity: 1; text-shadow: 0 0 10px #7ab8ff; }
+  @keyframes novaPulse { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.5) } }
+
+  /* ---------- overlays ---------- */
+  .overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center;
+    background: radial-gradient(120% 90% at 50% 40%, rgba(10,12,30,0.35), rgba(4,5,15,0.85));
+    backdrop-filter: blur(3px); cursor: pointer; padding: 20px; text-align: center; }
+  .overlay.hidden { display: none; }
+  .title { font-size: clamp(54px, 13vw, 132px); font-weight: 900; letter-spacing: 8px;
+    background: linear-gradient(180deg, #fff7d6, #ffd24a 45%, #ff7a3d);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 6px 30px rgba(255,170,60,0.45)); animation: float 3.6s ease-in-out infinite; }
+  @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-10px) } }
+  .subtitle { font-size: clamp(14px, 2.4vw, 19px); opacity: 0.92; margin: 6px auto 0; max-width: 560px; line-height: 1.5; }
+  .how { margin-top: 16px; font-size: 14px; opacity: 0.7; line-height: 1.7; }
+  .how b { color: #ffd24a; }
+
+  /* difficulty selector */
+  .diffs { display: flex; gap: 12px; justify-content: center; margin-top: 22px; pointer-events: auto; }
+  .diff { cursor: pointer; pointer-events: auto; min-width: 96px; padding: 12px 16px; border-radius: 14px;
+    background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.16); color: #fff;
+    font-weight: 800; letter-spacing: 1.5px; transition: transform .1s ease, border-color .15s, background .15s; }
+  .diff small { display: block; font-weight: 500; font-size: 11px; opacity: 0.7; letter-spacing: 0.5px; margin-top: 3px; }
+  .diff:hover { transform: translateY(-2px); background: rgba(255,255,255,0.12); }
+  .diff.sel { border-color: var(--sel, #ffd24a); background: rgba(255,210,74,0.14); box-shadow: 0 6px 22px rgba(255,180,60,0.25); }
+
+  .cta { margin-top: 24px; display: inline-block; font-size: 16px; font-weight: 800; letter-spacing: 2px;
+    padding: 14px 30px; border-radius: 99px; text-transform: uppercase;
+    background: linear-gradient(180deg, #ffe79a, #ffc23d); color: #2a1a04;
+    box-shadow: 0 10px 30px rgba(255,170,50,0.4); animation: pulse 1.8s ease-in-out infinite; pointer-events: auto; }
+  @keyframes pulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.05) } }
+  .big-score { font-size: clamp(40px, 9vw, 88px); font-weight: 900; color: #ffd24a; font-variant-numeric: tabular-nums; line-height: 1; margin: 4px 0; }
+  .result-label { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; }
+  .newbest { color: #8affc1; font-weight: 800; letter-spacing: 2px; margin-top: 6px; min-height: 20px; }
+  .menu-link { margin-top: 16px; font-size: 12px; letter-spacing: 1px; opacity: 0.6; text-decoration: underline; pointer-events: auto; }
+  .menu-link:hover { opacity: 1; }
+
+  .toggles { position: fixed; top: 14px; right: 16px; z-index: 6; display: flex; gap: 6px; }
+  .toggles button { pointer-events: auto; cursor: pointer; font-size: 21px; opacity: 1;
+    background: rgba(20,24,48,0.85); border: 1.5px solid rgba(255,210,74,0.55); border-radius: 11px;
+    width: 42px; height: 42px; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    transition: transform .1s, border-color .15s, background .15s; }
+  .toggles button:hover { background: rgba(40,46,80,0.95); border-color: #ffd24a; transform: translateY(-2px); }
+  .toggles button.off { opacity: 0.45; border-color: rgba(255,255,255,0.25); }
+  .credit { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center;
+    font-size: 11px; opacity: 0.4; z-index: 4; pointer-events: none; letter-spacing: 1px; }
+
+  /* start-screen how-to-play / powers panel */
+  .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; max-width: 540px;
+    margin: 18px auto 4px; text-align: left; }
+  .legend-grid > div { display: flex; align-items: center; gap: 10px; font-size: 13.5px; opacity: 0.9; }
+  .legend-grid .ic { font-size: 22px; width: 30px; text-align: center; flex-shrink: 0; }
+  .legend-grid b { color: #ffd24a; }
+  .legend-grid .nova { color: #bfe9ff; }
+  @media (max-width: 540px) { .legend-grid { grid-template-columns: 1fr; } }
+
+  /* in-game coach tips */
+  #coach { position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(10px);
+    z-index: 4; pointer-events: none; opacity: 0; transition: opacity .35s ease, transform .35s ease;
+    background: rgba(8,10,26,0.72); border: 1px solid rgba(255,255,255,0.18); border-radius: 99px;
+    padding: 10px 20px; font-size: 14.5px; font-weight: 600; white-space: nowrap; max-width: 92vw;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6); box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  #coach.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #coach b { color: #ffd24a; }
+
+  /* guided practice tooltip */
+  #tip { position: fixed; z-index: 8; max-width: 320px; width: max-content;
+    background: linear-gradient(180deg, rgba(24,28,54,0.97), rgba(14,16,34,0.97));
+    border: 2px solid #ffd24a; border-radius: 14px; padding: 14px 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55); text-align: left; }
+  #tip.hidden { display: none; }
+  #tipText { font-size: 14.5px; line-height: 1.5; }
+  #tipText b { color: #ffd24a; }
+  #tipRow { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; }
+  #tipStep { font-size: 11px; letter-spacing: 1px; opacity: 0.55; }
+  #tipNext { cursor: pointer; font-weight: 800; font-size: 13px; letter-spacing: 1px; color: #2a1a04;
+    background: linear-gradient(180deg, #ffe79a, #ffc23d); border: none; padding: 8px 16px; border-radius: 99px; }
+  #tipSkip { cursor: pointer; font-size: 11px; opacity: 0.55; text-decoration: underline; }
+  #tipSkip:hover { opacity: 1; }
+  .tut-glow { animation: tutGlow 1s ease-in-out infinite; border-radius: 12px;
+    box-shadow: 0 0 0 3px rgba(255,210,74,0.8), 0 0 22px rgba(255,200,80,0.7) !important; }
+  @keyframes tutGlow { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.4) } }
+
+  /* decode-the-dawn cipher mini-game */
+  .cipher-show { display: flex; gap: 14px; justify-content: center; margin: 22px 0 10px; }
+  .cipher-show .rune { font-size: 44px; width: 64px; height: 64px; display: grid; place-items: center;
+    border-radius: 14px; background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.18);
+    color: #ffe79a; transition: all .15s; }
+  .cipher-show .rune.lit { border-color: #ffd24a; background: rgba(255,210,74,0.18); box-shadow: 0 0 22px rgba(255,200,80,0.6); transform: scale(1.08); }
+  .cipher-show .rune.got { border-color: #8affc1; color: #8affc1; }
+  .cipher-pad { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 16px; pointer-events: auto; }
+  .cipher-pad button { pointer-events: auto; cursor: pointer; font-size: 34px; width: 70px; height: 70px;
+    border-radius: 16px; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.2); color: #fff;
+    transition: transform .08s, background .15s; }
+  .cipher-pad button:hover { background: rgba(255,255,255,0.18); transform: translateY(-3px); }
+  .cipher-pad button:active { transform: scale(0.92); }
+</style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="lvlbar"><i id="lvlfill"></i></div>
+  <div id="objective" class="hidden"></div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div>
+        <div id="score">0</div>
+        <div id="combo"></div>
+      </div>
+      <div class="right">
+        <div class="pill">Level <b id="level">1</b><span style="opacity:.6">/20</span></div>
+        <div class="pill">Best <b id="best">0</b></div>
+        <div id="diffTag">NORMAL</div>
+      </div>
+    </div>
+    <div class="meters">
+      <div class="meter-wrap nova-wrap" id="novaWrap">
+        <span class="meter-label">nova</span>
+        <span id="novaPips" class="nova-pips"></span>
+        <div class="meter"><i id="novabar"></i></div>
+        <span class="meter-label" id="novaHint">charging</span>
+      </div>
+      <div class="meter-wrap">
+        <span class="meter-label">night</span>
+        <div class="meter"><i id="daylight"></i></div>
+        <span class="meter-label">day</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toggles">
+    <button id="music" title="Music on/off">🎵</button>
+    <button id="sfx" title="Sound effects on/off">🔊</button>
+  </div>
+
+  <!-- Start -->
+  <div class="overlay" id="start">
+    <div>
+      <div class="title">SOLSTICE</div>
+      <div class="subtitle">An ode to <b>Alan Turing</b> — born in June, the man who turned the longest nights of a war toward dawn. Carry the light through <b>20 days</b>, survive <b>the Turn</b>, and break <b>two beasts of night</b>.</div>
+      <div class="legend-grid">
+        <div><span class="ic">🖱️</span><span><b>Move</b> — mouse or finger guides your light</span></div>
+        <div><span class="ic">✨</span><span><b>Collect motes</b> — light + score, build combos</span></div>
+        <div><span class="ic">🟣</span><span><b>Avoid shadows</b> — they drain your daylight</span></div>
+        <div><span class="ic">☀</span><span><b class="nova">NOVA</b> (Space / Click) — blast all shadows, shield up, hit the boss</span></div>
+        <div><span class="ic">⏳</span><span>Grab <b>power-ups</b>: Time Warp, Magnet, Freeze, Sun Fragment</span></div>
+        <div><span class="ic">🌑</span><span>Two <b>bosses</b> at days 10 &amp; 20 — bank Novas, then decode the dawn</span></div>
+      </div>
+      <div class="how" style="margin-top:8px">Each of the 10 levels has its own task — <span id="startTask"></span></div>
+      <div class="diffs" id="diffs">
+        <div class="diff" data-d="easy"><span>EASY</span><small>gentle &amp; forgiving</small></div>
+        <div class="diff sel" data-d="normal"><span>NORMAL</span><small>the real deal</small></div>
+        <div class="diff" data-d="hard"><span>HARD</span><small>night bites back</small></div>
+      </div>
+      <div class="cta" id="startCta">Begin the longest day ▸</div>
+      <div class="menu-link" id="startTut" style="margin-top:14px">▶ Quick tutorial &amp; practice</div>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay hidden" id="over">
+    <div>
+      <div class="result-label">Night fell on Level <span id="over-level">1</span></div>
+      <div class="big-score" id="over-score">0</div>
+      <div class="result-label">light gathered</div>
+      <div class="newbest" id="newbest"></div>
+      <div class="cta" id="overCta">Chase the sun again ▸</div>
+      <div class="menu-link" id="overMenu">change difficulty</div>
+    </div>
+  </div>
+
+  <!-- Level complete -->
+  <div class="overlay hidden" id="levelup">
+    <div>
+      <div class="title" id="lu-title" style="font-size:clamp(34px,7vw,74px)">LEVEL 1 COMPLETE!</div>
+      <div class="subtitle" id="lu-story" style="font-style:italic; opacity:0.85">🎉 Brilliant — you held back the dark.</div>
+      <div class="big-score" id="lu-score">0</div>
+      <div class="result-label">light gathered so far</div>
+      <div class="how" id="lu-next" style="margin-top:14px">Up next: Level 2 of 10</div>
+      <div class="cta" id="luCta">Begin Level 2 ▸</div>
+    </div>
+  </div>
+
+  <!-- Win -->
+  <div class="overlay hidden" id="win">
+    <div>
+      <div class="title" style="font-size:clamp(40px,9vw,96px)">DAWN</div>
+      <div class="subtitle">You cleared all 20 days, felled both beasts, and let the morning in.<br/><br/>For <b>Alan Turing</b> (1912–1954) — who broke the world's hardest cipher and was never allowed his own daylight. The light wins. ☀ 🏳️‍🌈</div>
+      <div class="big-score" id="win-score">0</div>
+      <div class="result-label">total light</div>
+      <div class="newbest" id="win-best"></div>
+      <div class="cta" id="winCta">Play again ▸</div>
+      <div class="cta ghost" id="winEndless" style="margin-left:10px; background:rgba(255,255,255,0.1); color:#fff; box-shadow:none">♾ Endless mode ▸</div>
+      <div class="menu-link" id="winMenu">change difficulty</div>
+    </div>
+  </div>
+
+  <!-- Decode the Dawn (boss finisher — the Turing codebreaking beat) -->
+  <div class="overlay hidden" id="decode">
+    <div>
+      <div class="result-label">The Longest Night is exposed</div>
+      <div class="title" style="font-size:clamp(28px,6vw,58px)">DECODE THE DAWN</div>
+      <div class="subtitle">Turing's Bombe found the key. Repeat the cipher to break the night for good.</div>
+      <div id="cipherShow" class="cipher-show"></div>
+      <div id="cipherPad" class="cipher-pad"></div>
+      <div class="newbest" id="decodeMsg" style="min-height:22px"></div>
+    </div>
+  </div>
+
+  <div id="coach"></div>
+
+  <!-- guided practice tooltip -->
+  <div id="tip" class="hidden">
+    <div id="tipText"></div>
+    <div id="tipRow">
+      <span id="tipStep"></span>
+      <span style="display:flex; gap:12px; align-items:center">
+        <span id="tipSkip">Skip</span>
+        <button id="tipNext">Next ▸</button>
+      </span>
+    </div>
+  </div>
+
+  <div class="credit">June Solstice Game Jam · move = mouse / touch · an ode to Alan Turing &amp; the longest day</div>
+
+<script>
+(() => {
+  "use strict";
+  const cv = document.getElementById("c");
+  const ctx = cv.getContext("2d");
+  const $ = (id) => document.getElementById(id);
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    cv.style.width = W + "px"; cv.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener("resize", resize); resize();
+
+  // ---------- difficulty presets ----------
+  const DIFFS = {
+    easy:   { label: "EASY",   drain: 0.7, sSpeed: 0.8, sRate: 1.4, mRate: 0.8,  gain: 1.2,  hit: 0.10, sel: "#8affc1" },
+    normal: { label: "NORMAL", drain: 1.0, sSpeed: 1.0, sRate: 1.0, mRate: 1.0,  gain: 1.0,  hit: 0.14, sel: "#ffd24a" },
+    hard:   { label: "HARD",   drain: 1.4, sSpeed: 1.3, sRate: 0.7, mRate: 1.25, gain: 0.85, hit: 0.20, sel: "#ff7a8a" },
+  };
+  let diffKey = localStorage.getItem("solstice-diff") || "normal";
+  const NOVA_MAX = 3;   // most Sun Nova blasts you can stockpile
+
+  // each level has its own task to clear it (20 levels, bosses at 10 & 20)
+  const OBJECTIVES = [
+    { type: "motes",   target: 8,    desc: "Collect 8 sun motes" },
+    { type: "score",   target: 400,  desc: "Gather 400 light" },
+    { type: "survive", target: 18,   desc: "Survive 18 seconds" },
+    { type: "motes",   target: 16,   desc: "Collect 16 sun motes" },
+    { type: "score",   target: 900,  desc: "Gather 900 light" },
+    { type: "combo",   target: 8,    desc: "Reach an 8× combo" },
+    { type: "survive", target: 26,   desc: "Survive 26 seconds" },
+    { type: "motes",   target: 24,   desc: "Collect 24 sun motes" },
+    { type: "score",   target: 1600, desc: "Gather 1600 light" },
+    { type: "boss",    target: 1,    desc: "Defeat The Longest Night" },
+    { type: "motes",   target: 20,   desc: "Collect 20 sun motes" },
+    { type: "score",   target: 2400, desc: "Gather 2400 light" },
+    { type: "survive", target: 30,   desc: "Survive 30 seconds" },
+    { type: "combo",   target: 12,   desc: "Reach a 12× combo" },
+    { type: "motes",   target: 30,   desc: "Collect 30 sun motes" },
+    { type: "score",   target: 3400, desc: "Gather 3400 light" },
+    { type: "survive", target: 36,   desc: "Survive 36 seconds" },
+    { type: "motes",   target: 40,   desc: "Collect 40 sun motes" },
+    { type: "score",   target: 4800, desc: "Gather 4800 light" },
+    { type: "boss",    target: 1,    desc: "Defeat the Eclipse King" },
+  ];
+  const LAST_LEVEL = OBJECTIVES.length;   // 20
+  function isBossLevel(lv) { return OBJECTIVES[lv - 1] && OBJECTIVES[lv - 1].type === "boss"; }
+  function obj() { return OBJECTIVES[G.level - 1]; }
+  function objProgress() {
+    switch (obj().type) {
+      case "score": return G.levelScore;
+      case "motes": return G.levelMotes;
+      case "sunburst": return G.levelBursts;
+      case "combo": return G.maxCombo;
+      case "survive": return G.levelTime;
+      case "boss": return G.boss ? G.boss.maxhp - G.boss.hp : 0;
+    }
+    return 0;
+  }
+  function objComplete() { return obj().type !== "boss" && objProgress() >= obj().target; }
+
+  // Turing / solstice narrative — one line shown after clearing each level (1..9)
+  const STORY = [
+    "Every long day bends toward the dark. Keep the light moving.",
+    "Alan Turing taught machines to reason in light and shadow — ones and zeros.",
+    "At Bletchley he broke the Enigma, turning the longest nights of a war toward dawn.",
+    "Persecuted for who he loved, he was never granted his own daylight.",
+    "Halfway. The sun pauses at its peak… and the world begins to turn.",
+    "Across the equator, this very day is the shortest. Light and dark are a point of view.",
+    "Code is only light, arranged with intention. Arrange yours.",
+    "The night gathers into a single shape — the doubt he was made to carry.",
+    "One cipher left before the first beast. Break it, and press on.",
+    "The Longest Night falls — but a deeper dark still waits beyond.",
+    "Past the first beast, the cold grows teeth. Hold the line.",
+    "They tried to erase him. The light remembers anyway.",
+    "Apologies came decades too late. The work outlived the cruelty.",
+    "A pardon, a statue, a face on a banknote — and still, never enough.",
+    "Logic is a kind of mercy: it does not care who you love.",
+    "The machines he dreamed now light the whole world.",
+    "Almost there. The Eclipse King stirs at the edge of dawn.",
+    "Everything dark gathers for one last eclipse.",
+    "The final cipher. For Alan — break it, and let the morning win.",
+  ];
+  // the back half of the run is the "longest night" (post-Solstice Turn)
+  function darkHalf() { return G.level >= 6; }
+  function objLabel(level) {
+    const o = OBJECTIVES[level - 1];
+    if (o.type === "boss") return "⚔ " + o.desc;
+    return o.desc;
+  }
+
+  // ---------- audio: SFX + generative music ----------
+  let actx = null;
+  let sfxOn = localStorage.getItem("solstice-sfx") !== "0";
+  let musicOn = localStorage.getItem("solstice-music") !== "0";
+  function audio() { if (!actx) { try { actx = new (AudioContext || webkitAudioContext)(); } catch (e) {} } return actx; }
+
+  function tone(freq, dur, type, vol, dest) {
+    const a = audio(); if (!a) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(dest || a.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function blip(freq, type = "sine", dur = 0.12, vol = 0.18) { if (sfxOn) tone(freq, dur, type, vol); }
+
+  // win / lose stingers
+  function winFanfare() {
+    if (!sfxOn) return;
+    const seq = [523, 659, 784, 1046, 1318];               // rising C-E-G-C-E
+    seq.forEach((f, i) => setTimeout(() => tone(f, 0.3, "triangle", 0.22), i * 110));
+    setTimeout(() => [523, 659, 784, 1046].forEach(f => tone(f, 1.0, "triangle", 0.12)), seq.length * 110);
+  }
+  function loseSound() {
+    if (!sfxOn) return;
+    const seq = [392, 311, 247, 185];                      // descending "night falls"
+    seq.forEach((f, i) => setTimeout(() => tone(f, 0.45, "sawtooth", 0.2), i * 170));
+    setTimeout(() => [185, 220].forEach(f => tone(f, 1.2, "sine", 0.12)), seq.length * 170);
+  }
+
+  // ---------- generative music: beats + bass + lead (no external assets) ----------
+  const music = { id: null, step: 0, gain: null };
+  const SCALE_MAJ = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];   // bright pentatonic
+  const SCALE_MIN = [0, 2, 3, 5, 7, 8, 10, 12, 14, 15];    // dark minor (boss)
+  const hz = (semi) => 220 * Math.pow(2, semi / 12);
+
+  // 16-step patterns (one bar of sixteenth notes). -1 = rest.
+  const N_LEAD = [0, -1, 4, 2, 7, -1, 4, -1, 5, 4, 2, -1, 4, -1, 7, -1];
+  const N_ROOT = [0, 0, 5, 3];                              // chord root per bar (semitones)
+  const B_LEAD = [0, 3, 7, 3, 5, 3, 0, -1, 7, 5, 3, 0, 2, 3, 5, 7];
+  const B_BASS = [0, 0, 7, 0, 3, 0, 5, 0];                  // fast eighth-note bass (boss)
+
+  let noiseBuf = null;
+  function noiseBuffer() {
+    if (noiseBuf) return noiseBuf;
+    const a = audio(); if (!a) return null;
+    const n = Math.floor(a.sampleRate * 0.2);
+    noiseBuf = a.createBuffer(1, n, a.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    return noiseBuf;
+  }
+  function hat(vol) {
+    const a = audio(); if (!a || !music.gain) return;
+    const buf = noiseBuffer(); if (!buf) return;
+    const s = a.createBufferSource(); s.buffer = buf;
+    const hp = a.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 7000;
+    const g = a.createGain(); const t = a.currentTime;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+    s.connect(hp); hp.connect(g); g.connect(music.gain); s.start(t); s.stop(t + 0.06);
+  }
+  function kick(vol) {
+    const a = audio(); if (!a || !music.gain) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = "sine"; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.connect(g); g.connect(music.gain); o.start(t); o.stop(t + 0.22);
+  }
+
+  function musicTick() {
+    const a = audio(); if (!a || !music.gain) return;
+    const boss = !!G.boss;
+    const st = music.step % 16, bar = Math.floor(music.step / 16) % 4;
+    if (boss) {
+      // FURIOUS boss track — dark minor, four-on-the-floor, driving bass
+      if (st % 4 === 0) kick(0.65);
+      if (st === 10 || st === 14) kick(0.45);
+      hat(st % 2 ? 0.05 : 0.11);
+      if (st % 2 === 0) tone(hz(SCALE_MIN[B_BASS[st / 2]] - 24), 0.16, "sawtooth", 0.20, music.gain);
+      const d = B_LEAD[st];
+      if (d >= 0) tone(hz(SCALE_MIN[d % SCALE_MIN.length] + 12), 0.16, "square", 0.075, music.gain);
+      if (st === 0) tone(hz(-24), 1.7, "sine", 0.10, music.gain);   // ominous drone
+    } else {
+      // bright, driving level track — gets busier as levels climb
+      const root = N_ROOT[bar];
+      if (st % 4 === 0) kick(0.5);
+      hat(st % 2 ? 0.05 : 0.10);
+      if (st === 0 || st === 8) tone(hz(root - 24), 0.55, "triangle", 0.17, music.gain);
+      const d = N_LEAD[st];
+      if (d >= 0) tone(hz(SCALE_MAJ[d % SCALE_MAJ.length] + 12 + root), 0.26, "triangle", 0.11, music.gain);
+      if (G.level >= 4 && d >= 0 && st % 2 === 0)               // harmony layer climbs in
+        tone(hz(SCALE_MAJ[d % SCALE_MAJ.length] + 19 + root), 0.2, "sine", 0.05, music.gain);
+    }
+    music.step++;
+  }
+
+  function musicInterval() { return G.boss ? 112 : Math.max(122, 168 - G.level * 5); }  // faster each level, fastest at boss
+  function musicLoop() { musicTick(); music.id = setTimeout(musicLoop, musicInterval()); }
+  function musicStart() {
+    const a = audio(); if (!a || !musicOn || music.id) return;
+    if (!music.gain) { music.gain = a.createGain(); music.gain.gain.value = 0.5; music.gain.connect(a.destination); }
+    music.step = 0; music.id = setTimeout(musicLoop, 10);
+  }
+  function musicStop() { if (music.id) { clearTimeout(music.id); music.id = null; } }
+
+  $("sfx").onclick = (e) => { e.stopPropagation(); sfxOn = !sfxOn; localStorage.setItem("solstice-sfx", sfxOn ? "1" : "0");
+    $("sfx").textContent = sfxOn ? "🔊" : "🔇"; $("sfx").classList.toggle("off", !sfxOn); };
+  $("music").onclick = (e) => { e.stopPropagation(); musicOn = !musicOn; localStorage.setItem("solstice-music", musicOn ? "1" : "0");
+    $("music").classList.toggle("off", !musicOn); if (musicOn && G.running) musicStart(); else musicStop(); };
+  if (!sfxOn) { $("sfx").textContent = "🔇"; $("sfx").classList.add("off"); }
+  if (!musicOn) $("music").classList.add("off");
+
+  // ---------- starfield ----------
+  const stars = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random() * 0.85, r: Math.random() * 1.4 + 0.3, tw: Math.random() * 7 }));
+
+  // ---------- state ----------
+  const G = {
+    running: false, score: 0, level: 1, brightness: 0.55, combo: 0, comboTimer: 0,
+    best: Number(localStorage.getItem("solstice-arcade-best") || 0),
+    player: { x: W/2, y: H/2, tx: W/2, ty: H/2, r: 15 },
+    motes: [], shadows: [], parts: [], floats: [],
+    shake: 0, flash: 0, flashColor: "255,210,74",
+    moteTimer: 0, shadowTimer: 0, t: 0, solsticeGlow: 0,
+    banner: 0, bannerText: "", bannerSub: "", diff: DIFFS[diffKey], boss: null,
+    intermission: 0, pendingLevel: 1, completedLevel: 0,
+    charge: 0, novaStock: 0, shield: 0, nova: 0, novaX: 0, novaY: 0,
+    levelScore: 0, levelMotes: 0, levelBursts: 0, levelTime: 0, maxCombo: 0,
+    decoding: false, cipher: [], cipherInput: [],
+    tipShadow: false, tipNova: false, practice: false,
+    powerups: [], puTimer: 14, timeWarp: 0, magnet: 0, freeze: 0, hbTimer: 0, endless: false,
+  };
+  $("best").textContent = G.best;
+
+  function selectDiff(key) {
+    diffKey = key; G.diff = DIFFS[key]; localStorage.setItem("solstice-diff", key);
+    document.querySelectorAll(".diff").forEach(d => {
+      const on = d.dataset.d === key; d.classList.toggle("sel", on);
+      if (on) d.style.setProperty("--sel", DIFFS[key].sel);
+    });
+    $("diffTag").textContent = DIFFS[key].label;
+  }
+
+  // ---------- input ----------
+  function setTarget(x, y) { G.player.tx = x; G.player.ty = y; }
+  addEventListener("pointermove", (e) => setTarget(e.clientX, e.clientY));
+  addEventListener("touchmove", (e) => { if (e.touches[0]) setTarget(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  addEventListener("pointerdown", (e) => { setTarget(e.clientX, e.clientY); if (G.running) activateNova(); });
+  addEventListener("keydown", (e) => {
+    if (e.key === " " && G.running) { activateNova(); e.preventDefault(); return; }
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (G.decoding || BB.on || TUT.on) return;               // mini-games / tooltips own input
+    if (!$("levelup").classList.contains("hidden")) { nextLevel(); return; }
+    if (!G.running) start();
+  });
+
+  // ---------- player power: SUN NOVA ----------
+  function activateNova() {
+    if (!G.running || G.novaStock < 1) return;
+    const p = G.player;
+    G.novaStock--; G.shield = 4.5; G.nova = 1; G.novaX = p.x; G.novaY = p.y;
+    for (const s of G.shadows) burst(s.x, s.y, "255,220,140", 10, 180);
+    G.shadows = [];                                   // sweep the night away
+    G.brightness = Math.min(1, G.brightness + 0.12);
+    if (G.boss) { G.boss.hp -= G.boss.maxhp * 0.18; burst(G.boss.x, G.boss.y, "255,235,170", 30, 240); }
+    G.flash = 0.8; G.flashColor = "180,230,255"; G.shake = 14; G.solsticeGlow = 1.4;
+    floatText(p.x, p.y - 30, "☀ SUN NOVA!", "#bfe9ff");
+    blip(523, "sine", 0.14); setTimeout(() => blip(784, "sine", 0.16), 80); setTimeout(() => blip(1175, "sine", 0.3), 170);
+    if (G.practice) onPracticeNova();
+  }
+
+  // difficulty buttons
+  document.querySelectorAll(".diff").forEach(d => d.addEventListener("click", (e) => { e.stopPropagation(); selectDiff(d.dataset.d); blip(660, "sine", 0.08, 0.12); }));
+  // start / restart triggers
+  $("startCta").onclick = (e) => { e.stopPropagation();
+    if (localStorage.getItem("solstice-tut") === "done") start(); else startPractice(); };
+  $("startTut").onclick = (e) => { e.stopPropagation(); startPractice(); };
+  $("overCta").onclick = (e) => { e.stopPropagation(); start(); };
+  $("winCta").onclick = (e) => { e.stopPropagation(); start(); };
+  $("winEndless").onclick = (e) => { e.stopPropagation(); startEndless(); };
+  $("luCta").onclick = (e) => { e.stopPropagation(); nextLevel(); };
+  $("overMenu").onclick = (e) => { e.stopPropagation(); toMenu(); };
+  $("winMenu").onclick = (e) => { e.stopPropagation(); toMenu(); };
+
+  function toMenu() { $("over").classList.add("hidden"); $("win").classList.add("hidden"); $("start").classList.remove("hidden"); }
+
+  function start() {
+    const a = audio(); if (a && a.state === "suspended") a.resume();
+    Object.assign(G, { running: true, score: 0, level: 1, brightness: 0.55, combo: 0, comboTimer: 0,
+      motes: [], shadows: [], parts: [], floats: [], shake: 0, flash: 0,
+      moteTimer: 0, shadowTimer: 0.6, solsticeGlow: 0, banner: 2.2, bannerText: "LEVEL 1",
+      bannerSub: "Task: " + OBJECTIVES[0].desc, diff: DIFFS[diffKey], boss: null,
+      intermission: 0, pendingLevel: 1, completedLevel: 0,
+      charge: 0, novaStock: 0, shield: 0, nova: 0, novaX: 0, novaY: 0,
+      levelScore: 0, levelMotes: 0, levelBursts: 0, levelTime: 0, maxCombo: 0,
+      decoding: false, cipher: [], cipherInput: [],
+      tipShadow: false, tipNova: false, practice: false,
+      powerups: [], puTimer: 14, timeWarp: 0, magnet: 0, freeze: 0, hbTimer: 0, endless: false });
+    G.player.x = G.player.tx = W/2; G.player.y = G.player.ty = H/2;
+    $("level").textContent = 1;
+    $("start").classList.add("hidden"); $("over").classList.add("hidden"); $("win").classList.add("hidden");
+    $("levelup").classList.add("hidden"); $("decode").classList.add("hidden");
+    $("tip").classList.add("hidden"); TUT.on = false;
+    $("hud").classList.remove("hidden");
+    blip(523, "sine", 0.12); setTimeout(() => blip(784, "sine", 0.16), 90);
+    musicStart();
+    showCoach("🖱️ <b>Move your mouse</b> to guide your light and gather the glowing motes", 5);
+  }
+
+  // ---------- endless mode ----------
+  function startEndless() {
+    start();
+    G.endless = true; G.level = 11; G.endlessRamp = 18;
+    $("level").textContent = "∞";
+    G.banner = 2.6; G.bannerText = "♾ ENDLESS"; G.bannerSub = "No tasks, no end — just survive and score";
+  }
+
+  // ---------- guided practice / tutorial ----------
+  const TUT = {
+    on: false, step: 0, anchor: null,
+    steps: [
+      { anchor: "score",     text: "🌞 This is your <b>LIGHT</b> — your score. Gather glowing motes to raise it." },
+      { anchor: "objective", text: "🎯 Every level shows its <b>task</b> here. Clear it to move to the next level." },
+      { anchor: "daylight",  text: "🌗 This is your <b>DAYLIGHT</b>. Shadows drain it — if it ever empties, night falls and the run ends." },
+      { anchor: "novaPips",  text: "☀ These ☀ are your <b>NOVA blasts</b>. You can stockpile up to <b>3</b>. Collect motes to charge them — the bar fills the next one." },
+      { anchor: null,        text: "✨ Your turn! <b>Move your mouse</b> and catch the glowing mote.", action: "mote" },
+      { anchor: "novaPips",  text: "☀ Nice — you earned a <b>Nova</b> (see the lit ☀). Now press <b>SPACE</b> or <b>CLICK</b> to fire it!", action: "nova" },
+      { anchor: null,        text: "🎉 Perfect — you've got it. Starting the real game…", action: "done" },
+    ],
+  };
+
+  function startPractice() {
+    const a = audio(); if (a && a.state === "suspended") a.resume();
+    Object.assign(G, { running: true, practice: true, score: 0, level: 1, brightness: 0.7, combo: 0, comboTimer: 0,
+      motes: [], shadows: [], parts: [], floats: [], shake: 0, flash: 0, boss: null,
+      charge: 0, novaStock: 0, shield: 0, nova: 0, solsticeGlow: 0, banner: 0,
+      levelScore: 0, levelMotes: 0, decoding: false, tipShadow: true, tipNova: true });
+    G.player.x = G.player.tx = W/2; G.player.y = G.player.ty = H/2;
+    $("level").textContent = 1;
+    ["start","over","win","levelup","decode"].forEach(id => $(id).classList.add("hidden"));
+    $("hud").classList.remove("hidden");
+    musicStart();
+    tutShow(0);
+  }
+
+  function tutShow(n) {
+    TUT.on = true; TUT.step = n;
+    if (TUT.anchor) TUT.anchor.classList.remove("tut-glow");
+    const s = TUT.steps[n];
+    $("tipText").innerHTML = s.text;
+    $("tipStep").textContent = "STEP " + (n + 1) + " / " + TUT.steps.length;
+    $("tipNext").style.display = s.action ? "none" : "inline-block";
+    $("tipNext").textContent = "Next ▸";
+    $("tip").classList.remove("hidden");
+    // anchor highlight + position
+    TUT.anchor = s.anchor ? $(s.anchor) : null;
+    if (TUT.anchor) TUT.anchor.classList.add("tut-glow");
+    positionTip();
+    if (s.action === "mote") spawnPracticeMote();
+    if (s.action === "done") { blip(660,"sine",0.16); setTimeout(()=>blip(988,"sine",0.2),110); setTimeout(finishPractice, 1700); }
+  }
+
+  function positionTip() {
+    const tip = $("tip");
+    tip.style.visibility = "hidden"; tip.classList.remove("hidden");
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left, top;
+    if (TUT.anchor) {
+      const r = TUT.anchor.getBoundingClientRect();
+      left = r.left + r.width / 2 - tw / 2;
+      top = r.bottom + 14;
+      if (top + th > innerHeight - 10) top = r.top - th - 14;   // flip above if no room below
+    } else {
+      left = innerWidth / 2 - tw / 2; top = innerHeight * 0.62;
+    }
+    left = Math.max(10, Math.min(left, innerWidth - tw - 10));
+    top = Math.max(10, Math.min(top, innerHeight - th - 10));
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+    tip.style.visibility = "visible";
+  }
+  addEventListener("resize", () => { if (TUT.on) positionTip(); });
+
+  function spawnPracticeMote() {
+    G.motes = [{ x: W / 2 + (Math.random() < 0.5 ? -1 : 1) * Math.min(220, W * 0.25),
+      y: H * 0.55, r: 14, phase: 0, life: 999, big: true }];
+  }
+
+  $("tipNext").onclick = (e) => { e.stopPropagation();
+    if (BB.on) { if (BB.step < BB.steps.length - 1) { blip(660,"sine",0.08,0.12); bbShow(BB.step + 1); } else bbStart(); return; }
+    if (TUT.step < TUT.steps.length - 1) { blip(660,"sine",0.08,0.12); tutShow(TUT.step + 1); }
+  };
+  $("tipSkip").onclick = (e) => { e.stopPropagation(); if (BB.on) bbStart(); else finishPractice(); };
+
+  // hooks called from gameplay during practice
+  function onPracticeMote() {
+    if (TUT.step !== 4) return;
+    G.novaStock = 1; G._pips = -1;          // grant a blast and force the pip redraw
+    tutShow(5);
+  }
+  function onPracticeNova() { if (TUT.step === 5) tutShow(6); }
+
+  function finishPractice() {
+    if (TUT.anchor) TUT.anchor.classList.remove("tut-glow");
+    TUT.on = false; $("tip").classList.add("hidden");
+    G.practice = false;
+    localStorage.setItem("solstice-tut", "done");
+    start();
+  }
+
+  // ---------- boss briefing (practice before the final level) ----------
+  const BB = {
+    on: false, step: 0,
+    steps: [
+      { anchor: null,       text: "⚠ <b>THE LONGEST NIGHT</b> has risen and pinned the sun. <b>Ram your light</b> straight into it to drain its health bar (up top)." },
+      { anchor: "novaPips",  text: "☝ Contact <b>burns your own daylight</b>. Fire a <b>NOVA</b> first — its shield lets you ram <b>safely and hit harder</b>. This is what you banked blasts for!" },
+      { anchor: null,       text: "🧩 At <b>0 HP</b> it's exposed — repeat its cipher to <b>DECODE THE DAWN</b> and break the night for good. Good luck.", last: true },
+    ],
+  };
+  function startBossBriefing() {
+    spawnBoss();            // boss appears (and pins the sun) while we explain it
+    G.running = false;      // paused during the briefing
+    BB.on = true; BB.step = 0;
+    bbShow(0);
+  }
+  function bbShow(n) {
+    BB.step = n;
+    if (TUT.anchor) TUT.anchor.classList.remove("tut-glow");
+    const s = BB.steps[n];
+    $("tipText").innerHTML = s.text;
+    $("tipStep").textContent = "BOSS BRIEFING " + (n + 1) + " / " + BB.steps.length;
+    $("tipNext").style.display = "inline-block";
+    $("tipNext").textContent = s.last ? "Begin the fight ▸" : "Next ▸";
+    $("tip").classList.remove("hidden");
+    TUT.anchor = s.anchor ? $(s.anchor) : null;
+    if (TUT.anchor) TUT.anchor.classList.add("tut-glow");
+    positionTip();
+  }
+  function bbStart() {
+    BB.on = false;
+    if (TUT.anchor) { TUT.anchor.classList.remove("tut-glow"); TUT.anchor = null; }
+    $("tip").classList.add("hidden");
+    G.running = true;       // the fight begins
+    blip(523, "square", 0.1, 0.14); setTimeout(() => blip(392, "square", 0.16, 0.14), 110);
+  }
+
+  function endRun(won) {
+    G.running = false; musicStop();
+    if (G.score > G.best) { G.best = G.score; localStorage.setItem("solstice-arcade-best", G.best); }
+    $("best").textContent = G.best;
+    if (won) {
+      $("win-score").textContent = G.score;
+      $("win-best").textContent = "Best: " + G.best;
+      $("win").classList.remove("hidden");
+      winFanfare();
+    } else {
+      $("newbest").textContent = (G.score >= G.best && G.score > 0) ? "★ NEW BEST ★" : "";
+      $("over-level").textContent = G.level; $("over-score").textContent = G.score;
+      $("over").classList.remove("hidden");
+      loseSound();
+    }
+  }
+
+  // ---------- spawning ----------
+  function spawnMote() {
+    G.motes.push({ x: 60 + Math.random() * (W - 120), y: 70 + Math.random() * (H - 160),
+      r: 9 + Math.random() * 4, phase: Math.random() * 7, life: 8.5, big: Math.random() < 0.12 });
+  }
+  function spawnShadow() {
+    const side = Math.floor(Math.random() * 4); let x, y;
+    if (side === 0) { x = -30; y = Math.random() * H; }
+    else if (side === 1) { x = W + 30; y = Math.random() * H; }
+    else if (side === 2) { x = Math.random() * W; y = -30; }
+    else { x = Math.random() * W; y = H + 30; }
+    let speed = (44 + G.level * 11 + Math.random() * 28) * G.diff.sSpeed;
+    let r = 13 + Math.random() * 6, type = "normal";
+    const roll = Math.random();
+    if (G.level >= 3 && roll < 0.20) { type = "darter"; speed *= 1.8; r = 10; }        // fast, small
+    else if (G.level >= 5 && roll < 0.38) { type = "tank"; speed *= 0.55; r = 23; }     // big, slow
+    else if (G.level >= 8 && roll < 0.52) { type = "splitter"; speed *= 0.8; r = 16; }  // splits when blasted
+    G.shadows.push({ x, y, r, speed, wob: Math.random() * 7, type });
+    if (!G.tipShadow && G.level === 1) { G.tipShadow = true;
+      showCoach("🟣 <b>Dodge the shadows</b> — every hit drains your daylight!", 4.5); }
+  }
+  function splitShadow(s) {
+    for (let i = 0; i < 2; i++)
+      G.shadows.push({ x: s.x + (i ? 18 : -18), y: s.y, r: 10, speed: s.speed * 1.3, wob: Math.random() * 7, type: "normal" });
+  }
+
+  function burst(x, y, color, n, power) {
+    for (let i = 0; i < n; i++) { const a = Math.random() * 7, s = Math.random() * power + power * 0.2;
+      G.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5 + Math.random() * 0.5, max: 1, size: 1 + Math.random() * 3, color }); }
+  }
+  function floatText(x, y, text, color) { G.floats.push({ x, y, vy: -42, life: 1, text, color }); }
+
+  // ---------- coach tips (onboarding) ----------
+  let coachTimer = null;
+  function showCoach(html, seconds) {
+    const el = $("coach");
+    el.innerHTML = html; el.classList.add("show");
+    clearTimeout(coachTimer);
+    coachTimer = setTimeout(() => el.classList.remove("show"), seconds * 1000);
+  }
+  function hideCoach() { $("coach").classList.remove("show"); clearTimeout(coachTimer); }
+
+  // ---------- power-up pickups ----------
+  const POWERS = {
+    warp:   { icon: "⏳", color: "120,200,255", label: "TIME WARP" },
+    magnet: { icon: "🧲", color: "255,160,90",  label: "LIGHT MAGNET" },
+    freeze: { icon: "❄", color: "160,230,255", label: "FREEZE" },
+    sun:    { icon: "☀", color: "255,220,120", label: "SUN FRAGMENT" },
+  };
+  const POWER_KEYS = ["warp", "magnet", "freeze", "sun"];
+  function spawnPowerup() {
+    const k = POWER_KEYS[Math.floor(Math.random() * POWER_KEYS.length)];
+    G.powerups.push({ k, x: 80 + Math.random() * (W - 160), y: 100 + Math.random() * (H - 220), r: 19, life: 9, phase: Math.random() * 7 });
+  }
+  function collectPowerup(pu) {
+    const P = POWERS[pu.k];
+    burst(pu.x, pu.y, P.color, 26, 220);
+    blip(700, "sine", 0.12, 0.18); setTimeout(() => blip(1046, "sine", 0.16, 0.16), 80);
+    floatText(pu.x, pu.y - 12, P.label + "!", "rgb(" + P.color + ")");
+    if (pu.k === "warp") G.timeWarp = 5;
+    else if (pu.k === "magnet") G.magnet = 5;
+    else if (pu.k === "freeze") G.freeze = 3.5;
+    else { G.brightness = Math.min(1, G.brightness + 0.4); G.solsticeGlow = Math.max(G.solsticeGlow, 1.1); }
+  }
+
+  // ---------- shapes that evolve with the level ----------
+  // tier 0:circle 1:triangle 2:diamond 3:pentagon 4:hexagon 5:star
+  function shapeTier() { return Math.min(5, Math.floor((G.level - 1) / 2)); }
+  function polyPath(x, y, r, sides, rot) {
+    ctx.beginPath();
+    for (let i = 0; i < sides; i++) { const a = rot + i * 6.283 / sides;
+      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+    ctx.closePath();
+  }
+  function starPath(x, y, ro, ri, spikes, rot) {
+    ctx.beginPath();
+    for (let i = 0; i < spikes * 2; i++) { const rr = i % 2 ? ri : ro, a = rot + i * Math.PI / spikes;
+      const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr; i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+    ctx.closePath();
+  }
+  // draw a mote/shadow body using the shape for the current level
+  function shapeBody(x, y, r, rot, tier) {
+    if (tier === 0) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); }
+    else if (tier === 5) { starPath(x, y, r, r * 0.5, 5, rot); }
+    else { polyPath(x, y, r, tier + 2, rot); }   // 3,4,5,6 sides
+  }
+
+  // ---------- the boss: The Longest Night ----------
+  function spawnBoss() {
+    const finalBoss = G.level >= LAST_LEVEL;
+    const base = { easy: 70, normal: 110, hard: 155 }[diffKey];
+    const hp = finalBoss ? Math.round(base * 1.7) : base;
+    G.boss = { x: W / 2, y: H * 0.18, r: finalBoss ? 92 : 80, hp, maxhp: hp,
+      t: Math.random() * 7, shoot: 1.6, ring: 2.4, phase: 1, final: finalBoss };
+    G.banner = 3.0;
+    G.bannerText = finalBoss ? "🌑 THE ECLIPSE KING" : "⚠ THE LONGEST NIGHT";
+    G.bannerSub = finalBoss ? "The final dark — bank your Novas and break it" : "Ram your light into the beast — don't let it pin the sun down";
+    G.flash = 1; G.flashColor = finalBoss ? "90,20,140" : "150,40,255"; G.shake = 18;
+    blip(110, "sawtooth", 0.6, 0.22); setTimeout(() => blip(82, "sawtooth", 0.8, 0.22), 160);
+  }
+  function bossShoot(b, ang, speed) {
+    G.shadows.push({ x: b.x, y: b.y, r: 12, speed, wob: Math.random() * 7, type: "normal", aim: ang });
+  }
+  function updateBoss(dt) {
+    const b = G.boss, p = G.player;
+    // phase 2 when half-broken: faster, angrier
+    if (b.phase === 1 && b.hp <= b.maxhp * 0.5) {
+      b.phase = 2;
+      G.banner = 2.2; G.bannerText = b.final ? "THE ECLIPSE RAGES" : "THE NIGHT RAGES";
+      G.bannerSub = "phase 2 — faster, and it bites harder";
+      G.flash = 1; G.flashColor = "255,60,90"; G.shake = 22;
+      blip(90, "sawtooth", 0.7, 0.24); setTimeout(() => blip(70, "sawtooth", 0.8, 0.24), 160);
+    }
+    const rage = b.phase === 2 ? 1.7 : 1.0;
+    b.t += dt;
+    b.x = W / 2 + Math.sin(b.t * 0.7 * rage) * W * 0.30;
+    b.y = H * 0.17 + Math.sin(b.t * 1.3 * rage) * 34;
+    // contact: you damage it, but your light burns down while touching
+    if (Math.hypot(p.x - b.x, p.y - b.y) < p.r + b.r) {
+      b.hp -= (G.shield > 0 ? 48 : 30) * dt;
+      if (G.shield <= 0) G.brightness -= 0.18 * dt;
+      G.shake = Math.max(G.shake, 4);
+      if (Math.random() < 0.7) burst(p.x + (Math.random()-0.5)*50, p.y + (Math.random()-0.5)*50, "255,205,120", 2, 130);
+    }
+    // aimed volley at you
+    b.shoot -= dt;
+    if (b.shoot <= 0) {
+      b.shoot = b.phase === 2 ? 0.55 : 1.5;
+      const shots = b.phase === 2 ? 2 : 1, aim = Math.atan2(p.y - b.y, p.x - b.x);
+      for (let i = 0; i < shots; i++) bossShoot(b, aim + (i - 0.5) * 0.3, (b.phase === 2 ? 165 : 135) * G.diff.sSpeed);
+      blip(b.phase === 2 ? 110 : 140, "sawtooth", 0.16, 0.15);
+    }
+    // telegraphed radial / spiral burst attack
+    b.ring -= dt;
+    if (b.ring <= 0) {
+      b.ring = b.final ? (b.phase === 2 ? 2.4 : 3.2) : (b.phase === 2 ? 3.4 : 4.6);
+      const n = b.final ? (b.phase === 2 ? 16 : 12) : (b.phase === 2 ? 10 : 8);
+      const off = b.final ? b.t * 1.3 : 0;     // spiral offset for the final boss
+      for (let i = 0; i < n; i++) bossShoot(b, off + i * 6.283 / n, 95 * G.diff.sSpeed);
+      G.flash = Math.max(G.flash, 0.5); G.flashColor = "150,40,255";
+      blip(70, "sawtooth", 0.3, 0.2);
+    }
+    if (b.hp <= 0 && !G.decoding) startDecode();
+  }
+
+  // ---------- Decode the Dawn: the Turing codebreaking finisher ----------
+  const RUNES = ["◐", "✦", "▲", "◆", "●", "✶"];
+  function startDecode() {
+    G.decoding = true; G.running = false;
+    G.boss.hp = 0;
+    G.cipher = Array.from({ length: 3 }, () => RUNES[Math.floor(Math.random() * RUNES.length)]);
+    G.cipherInput = [];
+    G.flash = 1; G.flashColor = "255,235,180"; G.solsticeGlow = 1.6;
+    blip(523, "sine", 0.12); setTimeout(() => blip(659, "sine", 0.14), 90);
+    renderDecode();
+    $("decodeMsg").textContent = "";
+    $("decode").classList.remove("hidden");
+  }
+  function renderDecode() {
+    const show = $("cipherShow"); show.innerHTML = "";
+    G.cipher.forEach((r, i) => {
+      const d = document.createElement("div");
+      d.className = "rune" + (i < G.cipherInput.length ? " got" : "");
+      d.textContent = r; show.appendChild(d);
+    });
+    const pad = $("cipherPad"); pad.innerHTML = "";
+    RUNES.forEach((r) => {
+      const b = document.createElement("button");
+      b.textContent = r;
+      b.onclick = (e) => { e.stopPropagation(); pressRune(r); };
+      pad.appendChild(b);
+    });
+  }
+  function pressRune(r) {
+    const idx = G.cipherInput.length;
+    if (r === G.cipher[idx]) {
+      G.cipherInput.push(r);
+      blip(523 + idx * 180, "sine", 0.1, 0.18);
+      renderDecode();
+      if (G.cipherInput.length === G.cipher.length) finishDecode();
+    } else {
+      G.cipherInput = [];
+      $("decodeMsg").textContent = "Signal lost — start the cipher again";
+      blip(150, "sawtooth", 0.2, 0.2);
+      renderDecode();
+    }
+  }
+  function finishDecode() {
+    $("decode").classList.add("hidden");
+    G.decoding = false;
+    blip(880, "sine", 0.16); setTimeout(() => blip(1318, "sine", 0.3), 130);
+    defeatBoss();
+  }
+  function defeatBoss() {
+    const b = G.boss; G.boss = null;
+    if (b) burst(b.x, b.y, "255,235,160", 100, 380);
+    G.flash = 1; G.flashColor = "255,240,200"; G.shake = 24; G.solsticeGlow = 1.8;
+    addScore(800 * G.level);
+    G.shadows = []; G.powerups = [];
+    blip(660, "sine", 0.16); setTimeout(() => blip(990, "sine", 0.2), 120);
+    if (G.level >= LAST_LEVEL) { endRun(true); return; }   // final boss → win
+    // mid-boss beaten → celebrate and roll into the next level
+    G.running = false;
+    G.completedLevel = G.level; G.pendingLevel = G.level + 1;
+    showLevelUp(true);
+  }
+
+  function addScore(n) { G.score += n; G.levelScore += n; }
+  function resetLevelStats() { G.levelScore = 0; G.levelMotes = 0; G.levelBursts = 0; G.levelTime = 0; G.maxCombo = 0; }
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function frame(now) { let dt = (now - last) / 1000; last = now; if (dt > 0.05) dt = 0.05; update(dt); render(); requestAnimationFrame(frame); }
+
+  function update(dt) {
+    G.t += dt;
+    for (const s of stars) s.tw += dt * 2;
+
+    const p = G.player;
+    p.x += (p.tx - p.x) * Math.min(1, dt * 12);
+    p.y += (p.ty - p.y) * Math.min(1, dt * 12);
+    if (Math.random() < 0.9) G.parts.push({ x: p.x + (Math.random()-0.5)*8, y: p.y + (Math.random()-0.5)*8,
+      vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10, life: 0.4, max: 0.4, size: 2 + Math.random()*2, color: "255,225,150" });
+
+    G.shake *= Math.pow(0.0025, dt); if (G.shake < 0.1) G.shake = 0;
+    G.flash = Math.max(0, G.flash - dt * 2.2);
+    G.solsticeGlow = Math.max(0, G.solsticeGlow - dt * 1.4);
+    G.banner = Math.max(0, G.banner - dt);
+
+    for (let i = G.parts.length - 1; i >= 0; i--) { const q = G.parts[i];
+      q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 0.96; q.vy *= 0.96; q.life -= dt; if (q.life <= 0) G.parts.splice(i, 1); }
+    for (let i = G.floats.length - 1; i >= 0; i--) { const f = G.floats[i];
+      f.y += f.vy * dt; f.vy *= 0.94; f.life -= dt * 0.9; if (f.life <= 0) G.floats.splice(i, 1); }
+
+    if (!G.running) { $("objective").classList.add("hidden"); hideCoach();
+      document.documentElement.style.setProperty("--night", (1 - G.brightness).toFixed(3)); return; }
+
+    const D = G.diff;
+    if (!G.practice) {
+      G.levelTime += dt;
+      G.brightness -= (0.04 + G.level * 0.010) * D.drain * dt;   // night presses, but stays survivable
+    }
+
+    G.comboTimer -= dt;
+    if (G.comboTimer <= 0 && G.combo > 0) { G.combo = 0; updateCombo(); }
+    if (G.shield > 0) G.shield -= dt;
+    if (G.nova > 0) G.nova -= dt * 1.6;
+    if (G.timeWarp > 0) G.timeWarp -= dt;          // active power-up effects
+    if (G.magnet > 0) G.magnet -= dt;
+    if (G.freeze > 0) G.freeze -= dt;
+    if (!G.practice && G.brightness < 0.25) {      // heartbeat warning when daylight critical
+      G.hbTimer -= dt;
+      if (G.hbTimer <= 0) { blip(62, "sine", 0.12, 0.2); setTimeout(() => blip(50, "sine", 0.14, 0.16), 140); G.hbTimer = 0.75; }
+    } else G.hbTimer = 0;
+
+    if (!G.practice) {                            // practice spawns are scripted, not automatic
+      G.moteTimer -= dt;
+      const moteEvery = Math.max(0.32, 0.8 - G.level * 0.035) * D.mRate;
+      if (G.moteTimer <= 0 && G.motes.length < 14) { spawnMote(); G.moteTimer = moteEvery; }
+      G.shadowTimer -= dt;
+      const shadowEvery = Math.max(0.42, 2.3 - G.level * 0.19) * D.sRate;   // faster, relentless spawns
+      if (G.shadowTimer <= 0) {
+        spawnShadow();
+        if (G.level >= 5 && Math.random() < 0.45) spawnShadow();            // swarms at higher levels
+        G.shadowTimer = shadowEvery;
+      }
+      // power-up drops
+      G.puTimer -= dt;
+      if (G.puTimer <= 0 && G.powerups.length < 2) { spawnPowerup(); G.puTimer = 12 + Math.random() * 7; }
+    }
+
+    // power-up pickups (drift, bob, collect)
+    for (let i = G.powerups.length - 1; i >= 0; i--) {
+      const pu = G.powerups[i]; pu.phase += dt * 2; pu.life -= dt;
+      if (Math.hypot(p.x - pu.x, p.y - (pu.y + Math.sin(pu.phase) * 5)) < p.r + pu.r + 6) {
+        collectPowerup(pu); G.powerups.splice(i, 1); continue;
+      }
+      if (pu.life <= 0) G.powerups.splice(i, 1);
+    }
+
+    for (let i = G.motes.length - 1; i >= 0; i--) { const m = G.motes[i];
+      m.phase += dt * 2; m.life -= dt;
+      if (G.magnet > 0) { const a = Math.atan2(p.y - m.y, p.x - m.x);   // Light Magnet pulls motes in
+        m.x += Math.cos(a) * 280 * dt; m.y += Math.sin(a) * 280 * dt; m.life = Math.max(m.life, 0.5); }
+      const my = m.y + Math.sin(m.phase) * 6;
+      if (Math.hypot(p.x - m.x, p.y - my) < p.r + m.r + 6) {
+        G.combo++; G.comboTimer = 2.4;
+        const mult = Math.min(8, 1 + Math.floor(G.combo / 4));
+        const gain = Math.round((m.big ? 50 : 10) * mult * D.gain * (darkHalf() ? 1.5 : 1));  // light is precious in the long night
+        addScore(gain); G.levelMotes++;
+        G.brightness = Math.min(1, G.brightness + (m.big ? 0.13 : 0.06) * D.gain);
+        G.charge += (m.big ? 0.20 : 0.07);   // charge the Sun Nova (rolls over into a stocked blast)
+        burst(m.x, m.y, m.big ? "255,150,60" : "255,220,120", m.big ? 26 : 14, m.big ? 220 : 150);
+        floatText(m.x, m.y - 6, "+" + gain, m.big ? "#ff9a3d" : "#ffe79a");
+        blip(440 + Math.min(G.combo, 24) * 28 + (m.big ? 200 : 0), "sine", 0.1, 0.16);
+        updateCombo(); G.motes.splice(i, 1);
+        if (G.practice) onPracticeMote();
+        continue;
+      }
+      if (m.life <= 0) { burst(m.x, m.y, "120,130,170", 5, 50); G.motes.splice(i, 1); }
+    }
+
+    const sf = G.freeze > 0 ? 0 : (G.timeWarp > 0 ? 0.32 : 1);   // Freeze / Time Warp affect shadows
+    for (let i = G.shadows.length - 1; i >= 0; i--) { const s = G.shadows[i];
+      s.wob += dt * 3;
+      const ang = s.aim !== undefined ? s.aim                     // boss bullets fly straight
+        : Math.atan2(p.y - s.y, p.x - s.x) + Math.sin(s.wob) * 0.5;
+      s.x += Math.cos(ang) * s.speed * sf * dt; s.y += Math.sin(ang) * s.speed * sf * dt;
+      if (Math.hypot(p.x - s.x, p.y - s.y) < p.r + s.r) {
+        if (G.shield > 0) {                       // shielded by Sun Nova — burn it away harmlessly
+          burst(s.x, s.y, "180,230,255", 16, 180);
+          if (s.type === "splitter") splitShadow(s);
+          blip(520, "sine", 0.08, 0.12); G.shadows.splice(i, 1); continue;
+        }
+        G.brightness -= D.hit * (s.type === "tank" ? 1.4 : 1); G.combo = 0; updateCombo();
+        G.shake = 18; G.flash = 1; G.flashColor = "255,70,90";
+        burst(s.x, s.y, "180,80,255", 22, 200);
+        floatText(p.x, p.y - 20, "shadow!", "#ff6a8a");
+        blip(180, "sawtooth", 0.22, 0.22); G.shadows.splice(i, 1); continue;
+      }
+      if (s.x < -120 || s.x > W + 120 || s.y < -120 || s.y > H + 120) G.shadows.splice(i, 1);
+    }
+
+    if (G.boss) updateBoss(dt);
+
+    // solstice burst (survival reward when meter fills)
+    if (G.brightness >= 1 && !G.practice) {
+      const bonus = 120 + 30 * G.level; addScore(bonus); G.levelBursts++;
+      G.brightness = 0.6; G.flash = 1; G.flashColor = "255,235,180"; G.shake = 8; G.solsticeGlow = 1.4;
+      burst(p.x, p.y, "255,230,150", 50, 300);
+      floatText(W/2, H/2 - 40, "☀ SUNBURST  +" + bonus, "#fff3c4");
+      blip(659,"sine",0.16); setTimeout(()=>blip(988,"sine",0.22),100);
+      G.shadows = G.shadows.filter(s => Math.hypot(p.x - s.x, p.y - s.y) > 220);
+    }
+
+    if (!G.practice) {
+      if (G.brightness <= 0) { G.brightness = 0; endRun(false); }
+      if (G.endless) {                              // endless: ramp difficulty over time, no objectives/boss
+        G.endlessRamp -= dt;
+        if (G.endlessRamp <= 0 && G.level < 20) { G.level++; G.endlessRamp = 16;
+          G.banner = 1.4; G.bannerText = "DEEPER INTO THE DARK…"; }
+      } else checkLevelUp();
+    }
+
+    // roll a full charge bar into a stocked Nova blast (up to NOVA_MAX)
+    while (G.charge >= 1 && G.novaStock < NOVA_MAX) { G.novaStock++; G.charge -= 1; blip(880, "sine", 0.12, 0.16); }
+    if (G.novaStock >= NOVA_MAX) G.charge = Math.min(G.charge, 1);
+
+    $("score").textContent = G.score;
+    $("daylight").style.width = (G.brightness * 100).toFixed(1) + "%";
+    $("novabar").style.width = (G.charge * 100).toFixed(0) + "%";
+    const ready = G.novaStock > 0;
+    $("novaWrap").classList.toggle("ready", ready);
+    if (G.novaStock !== G._pips) {     // only rebuild the pip icons when the count changes
+      G._pips = G.novaStock;
+      $("novaPips").innerHTML = Array.from({ length: NOVA_MAX },
+        (_, i) => `<b class="${i < G.novaStock ? "on" : ""}">☀</b>`).join("");
+    }
+    $("novaHint").textContent = G.shield > 0 ? "SHIELDED!"
+      : ready ? "×" + G.novaStock + " READY ▸ SPACE / CLICK" : "charging";
+    if (ready && !G.tipNova) { G.tipNova = true;
+      showCoach("☀ <b>NOVA READY!</b> Press <b>SPACE</b> or <b>CLICK</b> to blast every shadow and shield up", 5.5); }
+    const fill = $("lvlfill"), o = obj();
+    const objv = $("objective");
+    objv.classList.remove("hidden");
+    if (G.endless) {
+      objv.classList.remove("done");
+      objv.innerHTML = "♾ ENDLESS — survive! Light: <b>" + G.score + "</b>";
+      fill.style.width = (G.brightness * 100).toFixed(0) + "%";
+      fill.style.background = "linear-gradient(90deg, #48d1ff, #ffd24a)";
+    } else if (G.boss) {
+      fill.style.width = Math.max(0, G.boss.hp / G.boss.maxhp) * 100 + "%";
+      fill.style.background = "linear-gradient(90deg, #7a1030, #ff3a5a)";
+      objv.classList.add("done");
+      objv.innerHTML = "⚔ <b>The Longest Night</b> — break the beast";
+    } else {
+      const prog = Math.min(o.target, Math.floor(objProgress()));
+      fill.style.width = Math.max(0, Math.min(1, objProgress() / o.target)) * 100 + "%";
+      fill.style.background = "linear-gradient(90deg, #c98bff, #ffd24a)";
+      objv.classList.toggle("done", prog >= o.target);
+      objv.innerHTML = "Task — " + o.desc + " <b>(" + prog + "/" + o.target + ")</b>";
+    }
+    document.documentElement.style.setProperty("--night", (1 - G.brightness).toFixed(3));
+  }
+
+  function checkLevelUp() {
+    if (G.boss) return;
+    if (G.level >= LAST_LEVEL) return;
+    if (!objComplete()) return;
+    // level cleared — STOP the game, celebrate, wait for the player to continue
+    G.running = false;
+    G.completedLevel = G.level;
+    G.pendingLevel = G.level + 1;
+    G.shadows = [];
+    G.flash = 0.8; G.flashColor = "200,150,255"; G.solsticeGlow = 1.0;
+    burst(G.player.x, G.player.y, "201,139,255", 50, 280);
+    blip(523,"square",0.1,0.14); setTimeout(()=>blip(784,"square",0.12,0.14),100); setTimeout(()=>blip(1046,"square",0.22,0.14),210);
+    showLevelUp();
+  }
+
+  function showLevelUp(bossBeaten) {
+    const nextIsBoss = isBossLevel(G.pendingLevel);
+    const bossName = G.pendingLevel >= LAST_LEVEL ? "the Eclipse King" : "The Longest Night";
+    $("lu-title").textContent = bossBeaten ? "BOSS DEFEATED!" : "LEVEL " + G.completedLevel + " COMPLETE!";
+    $("lu-story").textContent = "“" + (STORY[G.completedLevel - 1] || "Keep the light moving.") + "”";
+    $("lu-score").textContent = G.score;
+    $("lu-next").innerHTML = nextIsBoss
+      ? "Next: <b style='color:#ff8aa0'>" + OBJECTIVES[G.pendingLevel - 1].desc + "</b>"
+      : "Level " + G.pendingLevel + " task: <b>" + OBJECTIVES[G.pendingLevel - 1].desc + "</b>";
+    $("luCta").textContent = nextIsBoss ? "Face " + bossName + " ▸" : "Begin Level " + G.pendingLevel + " ▸";
+    $("levelup").classList.remove("hidden");
+  }
+
+  // resume into the next level when the player clicks "Begin Level N"
+  function nextLevel() {
+    if ($("levelup").classList.contains("hidden")) return;
+    $("levelup").classList.add("hidden");
+    G.level = G.pendingLevel;
+    $("level").textContent = G.level;
+    G.brightness = Math.max(G.brightness, 0.62);  // start fresh with a healthy day
+    G.motes = []; G.shadows = []; G.moteTimer = 0; G.shadowTimer = 0.6;
+    resetLevelStats();
+    G.combo = 0; G.comboTimer = 0; updateCombo();   // start each level with a fresh combo
+    G.running = true;
+    if (G.level === 6) {                                  // THE SOLSTICE TURN — longest day becomes longest night
+      G.banner = 3.0; G.bannerText = "☀ → 🌙  THE SOLSTICE TURNS";
+      G.bannerSub = "The longest day becomes the longest night — light is worth more now";
+      G.flash = 1; G.flashColor = "120,150,255"; G.shake = 14; G.solsticeGlow = 1.4;
+      blip(392, "sine", 0.3); setTimeout(() => blip(261, "sine", 0.5), 200);
+      musicStart(); return;
+    }
+    if (isBossLevel(G.level)) { startBossBriefing(); musicStart(); return; }
+    G.banner = 1.6; G.bannerText = "LEVEL " + G.level; G.bannerSub = "Task: " + obj().desc;
+    blip(660, "sine", 0.12, 0.16);
+    musicStart();
+  }
+
+  function updateCombo() {
+    const el = $("combo");
+    if (G.combo >= 2) {
+      const mult = Math.min(8, 1 + Math.floor(G.combo / 4));
+      el.textContent = "COMBO ×" + G.combo + (mult > 1 ? "  ·  " + mult + "× light" : "");
+      el.style.transform = "scale(1.18)"; setTimeout(() => (el.style.transform = "scale(1)"), 110);
+    } else el.textContent = "";
+    if (G.combo > G.maxCombo) G.maxCombo = G.combo;
+  }
+
+  // ---------- render ----------
+  function render() {
+    const night = 1 - G.brightness;
+    const dark = darkHalf();
+    ctx.save();
+    if (G.shake) ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake);
+
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    const topL = (dark ? 7 : 12) + (1 - night) * (dark ? 24 : 40);
+    const botL = (dark ? 5 : 8) + (1 - night) * (dark ? 30 : 52);
+    // each level has its own colour palette (top sky hue cycles per level)
+    const PAL = [212, 280, 200, 330, 250, 188, 300, 230, 160, 265];
+    const topHue = PAL[(G.level - 1) % PAL.length];
+    const botHue = dark ? 250 : 28;                       // warm dawn → cold night after the Turn
+    g.addColorStop(0, `hsl(${topHue - (1-night)*10} ${45 + (1-night)*25}% ${topL}%)`);
+    g.addColorStop(1, `hsl(${botHue} ${50 + (1-night)*35}% ${botL}%)`);
+    ctx.fillStyle = g; ctx.fillRect(-40, -40, W + 80, H + 80);
+
+    for (const s of stars) { const a = 0.5 + 0.5 * Math.sin(s.tw);
+      ctx.globalAlpha = Math.max(0, night - 0.15) * a; ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+
+    const sunY = H * (0.92 - G.brightness * 0.72);
+    const sunR = 70 + G.solsticeGlow * 120;
+    ctx.globalAlpha = G.boss ? 0.4 : 1;   // the beast pins the light down
+    const sg = ctx.createRadialGradient(W/2, sunY, 0, W/2, sunY, sunR + 120);
+    sg.addColorStop(0, dark ? "rgba(225,233,255,0.9)" : "rgba(255,240,200,0.9)");
+    sg.addColorStop(0.4, dark ? `rgba(165,185,255,${0.5 + G.solsticeGlow*0.4})` : `rgba(255,200,90,${0.5 + G.solsticeGlow*0.4})`);
+    sg.addColorStop(1, dark ? "rgba(140,160,255,0)" : "rgba(255,170,60,0)");
+    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(W/2, sunY, sunR + 120, 0, 7); ctx.fill();
+    ctx.fillStyle = dark ? "#e9eeff" : "#fff4cf"; ctx.beginPath(); ctx.arc(W/2, sunY, sunR * 0.5, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    const tier = shapeTier();
+    ctx.globalCompositeOperation = "lighter";
+    for (const m of G.motes) { const my = m.y + Math.sin(m.phase) * 6;
+      const col = m.big ? "255,170,70" : "255,225,130";
+      const rot = m.phase * 0.8;
+      ctx.shadowBlur = 24; ctx.shadowColor = `rgba(${col},1)`; ctx.fillStyle = `rgba(${col},0.95)`;
+      shapeBody(m.x, my, m.r + (m.big ? Math.sin(G.t*6)*2 : 0), rot, tier); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.beginPath(); ctx.arc(m.x, my, m.r * 0.4, 0, 7); ctx.fill(); }
+    ctx.globalCompositeOperation = "source-over";
+
+    const spikes = 3 + tier;   // shadows grow sharper as the night deepens
+    for (const s of G.shadows) {
+      ctx.shadowBlur = 22; ctx.shadowColor = "rgba(150,60,255,0.9)";
+      const sg2 = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r + 8);
+      sg2.addColorStop(0, "rgba(40,8,60,0.95)"); sg2.addColorStop(0.6, "rgba(120,40,210,0.85)"); sg2.addColorStop(1, "rgba(120,40,210,0)");
+      ctx.fillStyle = sg2;
+      starPath(s.x, s.y, s.r + 5 + Math.sin(s.wob) * 2, s.r * 0.5, spikes, s.wob * 0.6);
+      ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(15,2,25,0.95)"; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 0.5, 0, 7); ctx.fill();
+    }
+
+    // ---------- boss: The Longest Night ----------
+    if (G.boss) {
+      const b = G.boss, rage = b.phase === 2;
+      const aura = rage ? "rgba(255,40,80,0.95)" : "rgba(150,40,255,0.95)";
+      const mid = rage ? "rgba(200,30,60,0.92)" : "rgba(120,30,200,0.92)";
+      const mid0 = rage ? "rgba(255,30,30,0)" : "rgba(120,30,200,0)";
+      ctx.shadowBlur = 50; ctx.shadowColor = aura;
+      const bg = ctx.createRadialGradient(b.x, b.y, 10, b.x, b.y, b.r + 20);
+      bg.addColorStop(0, rage ? "rgba(90,6,18,0.98)" : "rgba(60,8,90,0.98)");
+      bg.addColorStop(0.55, mid); bg.addColorStop(1, mid0);
+      ctx.fillStyle = bg;
+      starPath(b.x, b.y, b.r + Math.sin(b.t * (rage ? 4 : 2)) * 6, b.r * 0.6, 9, b.t * (rage ? 1.1 : 0.5)); ctx.fill();
+      ctx.fillStyle = "rgba(12,2,22,0.97)"; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.62, 0, 7); ctx.fill();
+      // glowing eyes (wider & brighter when raging)
+      ctx.shadowBlur = 18; ctx.shadowColor = "rgba(255,70,110,1)"; ctx.fillStyle = rage ? "#ff2e4e" : "#ff5a7a";
+      const ex = b.r * 0.28, ey = b.r * 0.1, er = rage ? 12 : 9;
+      ctx.beginPath(); ctx.arc(b.x - ex, b.y - ey, er, 0, 7); ctx.arc(b.x + ex, b.y - ey, er, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // power-up pickups
+    for (const pu of G.powerups) {
+      const P = POWERS[pu.k], py = pu.y + Math.sin(pu.phase) * 5, fade = pu.life < 2 ? (Math.sin(G.t * 18) * 0.4 + 0.6) : 1;
+      ctx.globalAlpha = fade;
+      ctx.shadowBlur = 22; ctx.shadowColor = `rgba(${P.color},0.95)`;
+      ctx.fillStyle = `rgba(${P.color},0.28)`; ctx.beginPath(); ctx.arc(pu.x, py, pu.r + 4, 0, 7); ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = `rgba(${P.color},1)`; ctx.beginPath(); ctx.arc(pu.x, py, pu.r, 0, 7); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "20px Segoe UI, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(P.icon, pu.x, py + 1); ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.globalCompositeOperation = "lighter";
+    for (const q of G.parts) { ctx.globalAlpha = Math.max(0, q.life / q.max);
+      ctx.fillStyle = `rgba(${q.color},1)`; ctx.beginPath(); ctx.arc(q.x, q.y, q.size, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+
+    const p = G.player, pulse = 1 + Math.sin(G.t * 8) * 0.06;
+    ctx.shadowBlur = 40; ctx.shadowColor = "rgba(255,210,120,0.95)";
+    const pg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 2.6 * pulse);
+    pg.addColorStop(0, "rgba(255,255,250,1)"); pg.addColorStop(0.45, "rgba(255,220,120,0.95)"); pg.addColorStop(1, "rgba(255,170,60,0)");
+    ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.6 * pulse, 0, 7); ctx.fill();
+    ctx.shadowBlur = 0;
+    // little sun rays
+    ctx.strokeStyle = "rgba(255,236,170,0.9)"; ctx.lineWidth = 3;
+    for (let i = 0; i < 8; i++) { const a = G.t * 0.6 + i * 0.785, r0 = p.r * 1.25, r1 = p.r * (1.65 + Math.sin(G.t * 6 + i) * 0.12);
+      ctx.beginPath(); ctx.moveTo(p.x + Math.cos(a) * r0, p.y + Math.sin(a) * r0); ctx.lineTo(p.x + Math.cos(a) * r1, p.y + Math.sin(a) * r1); ctx.stroke(); }
+    // sun face
+    ctx.fillStyle = "#fffef5"; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.92, 0, 7); ctx.fill();
+    ctx.fillStyle = "#7a4a12";
+    ctx.beginPath(); ctx.arc(p.x - p.r * 0.32, p.y - p.r * 0.12, p.r * 0.13, 0, 7); ctx.arc(p.x + p.r * 0.32, p.y - p.r * 0.12, p.r * 0.13, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#7a4a12"; ctx.lineWidth = 2.2; ctx.beginPath();
+    ctx.arc(p.x, p.y + p.r * 0.12, p.r * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+
+    // shield ring
+    if (G.shield > 0) {
+      ctx.strokeStyle = `rgba(150,225,255,${0.4 + 0.4 * Math.sin(G.t * 10)})`;
+      ctx.lineWidth = 3; ctx.shadowBlur = 16; ctx.shadowColor = "rgba(120,200,255,0.9)";
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 2.2, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
+    }
+    // nova shockwave
+    if (G.nova > 0) {
+      const rad = (1 - G.nova) * Math.max(W, H) * 0.7;
+      ctx.strokeStyle = `rgba(180,230,255,${G.nova})`;
+      ctx.lineWidth = 10 * G.nova + 2; ctx.shadowBlur = 30; ctx.shadowColor = "rgba(150,210,255,0.9)";
+      ctx.beginPath(); ctx.arc(G.novaX, G.novaY, rad, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
+    }
+
+    for (const f of G.floats) { ctx.globalAlpha = Math.max(0, Math.min(1, f.life));
+      ctx.fillStyle = f.color; ctx.font = "800 20px Segoe UI, sans-serif"; ctx.textAlign = "center"; ctx.fillText(f.text, f.x, f.y); }
+    ctx.globalAlpha = 1;
+
+    const vg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.35, W/2, H/2, Math.max(W,H)*0.75);
+    vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, `rgba(0,0,0,${0.25 + night*0.35})`);
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+
+    // DANGER: pulsing red edge when daylight is critically low
+    if (G.running && G.brightness < 0.25) {
+      const dpulse = (0.5 + 0.5 * Math.sin(G.t * 9)) * (1 - G.brightness / 0.25);
+      const dg = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.3, W/2, H/2, Math.max(W,H)*0.7);
+      dg.addColorStop(0, "rgba(255,0,40,0)"); dg.addColorStop(1, `rgba(255,20,50,${0.45 * dpulse})`);
+      ctx.fillStyle = dg; ctx.fillRect(0, 0, W, H);
+    }
+
+    // level banner
+    if (G.banner > 0) {
+      const a = Math.min(1, G.banner) * Math.min(1, (2.2 - G.banner) * 3 + 0.2);
+      ctx.globalAlpha = Math.max(0, Math.min(1, a));
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff3c4"; ctx.font = "900 56px Segoe UI, sans-serif";
+      ctx.shadowBlur = 30; ctx.shadowColor = "rgba(255,200,90,0.8)";
+      ctx.fillText(G.bannerText, W/2, H/2 - 10);
+      if (G.bannerSub) { ctx.font = "600 19px Segoe UI, sans-serif"; ctx.fillStyle = "#ffe79a"; ctx.shadowBlur = 12;
+        ctx.fillText(G.bannerSub, W/2, H/2 + 30); }
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+    // active power-up badges (screen-space, top center)
+    if (G.running) {
+      const act = [];
+      if (G.timeWarp > 0) act.push(["⏳", G.timeWarp / 5, "120,200,255"]);
+      if (G.magnet > 0) act.push(["🧲", G.magnet / 5, "255,160,90"]);
+      if (G.freeze > 0) act.push(["❄", G.freeze / 3.5, "160,230,255"]);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      act.forEach((a, i) => {
+        const x = W / 2 - (act.length - 1) * 32 + i * 64, y = 78;
+        ctx.fillStyle = `rgba(${a[2]},0.22)`; ctx.beginPath(); ctx.arc(x, y, 21, 0, 7); ctx.fill();
+        ctx.strokeStyle = `rgba(${a[2]},1)`; ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.arc(x, y, 25, -1.57, -1.57 + 6.283 * Math.max(0, a[1])); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.font = "20px Segoe UI, sans-serif"; ctx.fillText(a[0], x, y + 1);
+      });
+      ctx.textBaseline = "alphabetic";
+    }
+
+    ctx.restore();
+    if (G.flash > 0) { ctx.fillStyle = `rgba(${G.flashColor},${G.flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
+
+    // SUN PINNED warning while the boss is alive
+    if (G.boss) {
+      const pulse = 0.5 + 0.5 * Math.sin(G.t * 6);
+      ctx.globalAlpha = 0.45 + 0.55 * pulse;
+      ctx.textAlign = "center"; ctx.fillStyle = "#ff6a8a"; ctx.font = "800 16px Segoe UI, sans-serif";
+      ctx.shadowBlur = 12; ctx.shadowColor = "rgba(255,60,90,0.8)";
+      ctx.fillText("☀ SUN PINNED — ram the beast to free the light", W / 2, 64);
+      ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+    }
+
+  }
+
+  selectDiff(diffKey);
+  $("startTask").innerHTML = "Level 1: <b style='color:#ffd24a'>" + OBJECTIVES[0].desc + "</b>";
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

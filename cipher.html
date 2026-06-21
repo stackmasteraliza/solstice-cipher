@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Solstice Cipher — crack the light before the night</title>
+<meta name="description" content="An Enigma-flavored code-breaking game for the June Solstice. Crack the sun's cipher to push back the dark on the longest day." />
+<style>
+  :root {
+    --bg-day-top: #2b6cb0;
+    --bg-day-bottom: #f6ad55;
+    --ink: #fdf6e3;
+    --ink-dim: rgba(253, 246, 227, 0.62);
+    --gold: #ffd24a;
+    --amber: #f6884a;
+    --panel: rgba(8, 12, 28, 0.42);
+    --panel-edge: rgba(255, 255, 255, 0.14);
+    --lock: #ffd24a;
+    --present: #c98bff;
+    --miss: rgba(255, 255, 255, 0.14);
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+  }
+  body { overflow-x: hidden; overflow-y: auto; }
+
+  /* Sky shifts from bright daylight (night=0) to deep night (night=1) via --night */
+  body {
+    --night: 0;
+    padding: 14px 0;
+    background:
+      radial-gradient(120% 80% at 50% -10%,
+        hsl(48 100% calc(72% - 60% * var(--night)) / 1) 0%,
+        transparent 55%),
+      linear-gradient(180deg,
+        hsl(212 calc(60% - 20% * var(--night)) calc(46% - 40% * var(--night))) 0%,
+        hsl(28 calc(85% - 50% * var(--night)) calc(62% - 52% * var(--night))) 100%);
+    transition: background 1.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--night);
+    transition: opacity 1.1s ease;
+    background-image:
+      radial-gradient(1.4px 1.4px at 12% 22%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 28% 12%, #fff, transparent),
+      radial-gradient(1.6px 1.6px at 47% 28%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 63% 9%, #fff, transparent),
+      radial-gradient(1.5px 1.5px at 78% 24%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 88% 14%, #fff, transparent),
+      radial-gradient(1.3px 1.3px at 38% 40%, #fff, transparent),
+      radial-gradient(1.1px 1.1px at 72% 38%, #fff, transparent);
+  }
+
+  /* The sun rides the daylight arc and sinks as night rises */
+  #sun {
+    position: fixed;
+    left: 50%;
+    top: calc(8% + 70% * var(--night));
+    width: 92px;
+    height: 92px;
+    margin-left: -46px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 36%, #fff7d6, var(--gold) 55%, var(--amber) 100%);
+    box-shadow: 0 0 60px 18px rgba(255, 200, 90, calc(0.55 - 0.5 * var(--night)));
+    transition: top 1.1s ease, box-shadow 1.1s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 2;
+    width: min(640px, 94vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 20px;
+    padding: 16px 20px 14px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+  }
+
+  header { text-align: center; margin-bottom: 6px; }
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 0.5px;
+    font-weight: 800;
+  }
+  h1 .sub { color: var(--gold); }
+  .tagline { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-dim); }
+
+  .hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0 6px;
+    font-size: 13px;
+  }
+  .hud .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .hud .stat b { font-size: 19px; line-height: 1; }
+  .hud .stat span { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .daylight {
+    height: 9px;
+    border-radius: 99px;
+    background: rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+    margin: 4px 0 10px;
+    border: 1px solid var(--panel-edge);
+  }
+  .daylight > i {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--amber), var(--gold));
+    transition: width 0.45s ease;
+  }
+
+  /* Guess board */
+  #board { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px solid transparent;
+  }
+  .row.active { border-color: var(--gold); background: rgba(255, 210, 74, 0.08); }
+  .row .pegs { display: flex; gap: 6px; flex: 1; }
+  .peg {
+    width: 32px; height: 32px;
+    border-radius: 9px;
+    display: grid; place-items: center;
+    font-size: 18px;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--panel-edge);
+    user-select: none;
+  }
+  .peg.filled { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18); }
+
+  /* feedback clue dots */
+  .clue { display: grid; grid-template-columns: repeat(2, 9px); gap: 4px; width: 22px; }
+  .clue i { width: 9px; height: 9px; border-radius: 50%; background: var(--miss); }
+  .clue i.lock { background: var(--lock); box-shadow: 0 0 7px var(--lock); }
+  .clue i.present { background: var(--present); box-shadow: 0 0 7px var(--present); }
+
+  /* symbol palette */
+  .palette { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .sym {
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-edge);
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 24px;
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+  .sym:hover { background: rgba(255, 255, 255, 0.18); transform: translateY(-2px); }
+  .sym:active { transform: translateY(0); }
+
+  .controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  button.act {
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    color: #1a1206;
+    background: linear-gradient(180deg, #ffe08a, var(--gold));
+    border: none;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(255, 200, 70, 0.35);
+  }
+  button.act.ghost {
+    background: rgba(255,255,255,0.08);
+    color: var(--ink);
+    box-shadow: none;
+    border: 1px solid var(--panel-edge);
+  }
+  button.act:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+  .msg { text-align: center; min-height: 18px; margin: 10px 0 2px; font-size: 13px; color: var(--gold); }
+
+  footer { text-align: center; margin-top: 10px; font-size: 11px; color: var(--ink-dim); }
+
+  /* overlay (start / win / lose) */
+  .overlay {
+    position: fixed; inset: 0; z-index: 5;
+    display: grid; place-items: center;
+    background: rgba(4, 6, 18, 0.66);
+    backdrop-filter: blur(6px);
+    padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .card {
+    width: min(540px, 94vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 20px;
+    padding: 26px;
+    text-align: center;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { margin: 0 0 6px; font-size: 26px; }
+  .card p { margin: 8px 0; font-size: 14px; line-height: 1.55; color: var(--ink); }
+  .card .legend { font-size: 12.5px; color: var(--ink-dim); margin-top: 14px; }
+  .card .legend b { color: var(--gold); }
+  .card .legend .p { color: var(--present); }
+  .rotor { font-size: 30px; letter-spacing: 6px; margin: 6px 0 2px; }
+  .rotorline { letter-spacing: 4px; font-size: 18px; padding: 0 4px; }
+
+  @media (max-width: 480px) {
+    .peg { width: 32px; height: 32px; font-size: 17px; }
+    .sym { width: 42px; height: 42px; font-size: 21px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+  <div id="stars"></div>
+  <div id="sun"></div>
+
+  <div class="wrap" aria-live="polite">
+    <header>
+      <h1>Solstice <span class="sub">Cipher</span></h1>
+      <p class="tagline">Crack the sun's code before the longest day burns out.</p>
+    </header>
+
+    <div class="hud">
+      <div class="stat"><b id="hud-day">1</b><span>Day</span></div>
+      <div class="stat"><b id="hud-score">0</b><span>Light</span></div>
+      <div class="stat"><b id="hud-best">0</b><span>Best</span></div>
+    </div>
+
+    <div class="daylight" title="Daylight remaining"><i id="daylight-bar"></i></div>
+
+    <div id="board"></div>
+
+    <div class="palette" id="palette"></div>
+
+    <div class="controls">
+      <button class="act ghost" id="btn-back" title="Remove last symbol">⌫ Undo</button>
+      <button class="act ghost" id="btn-bombe" title="Spend daylight to lock one position">⚙ Bombe hint</button>
+      <button class="act" id="btn-submit">Decode ▸</button>
+    </div>
+
+    <p class="msg" id="msg">Pick symbols, then Decode.</p>
+
+    <footer>An ode to Alan Turing • June Solstice Game Jam • <span id="code-len">4</span>-glyph cipher</footer>
+  </div>
+
+  <!-- Start / result overlay -->
+  <div class="overlay" id="overlay">
+    <div class="card" id="card">
+      <div class="rotor">☀ 🌙 🔥 ⭐</div>
+      <h2 id="card-title">Solstice Cipher</h2>
+      <p id="card-body">
+        It's the longest day, but the night is closing in. Each round the sun hides a secret
+        cipher. <b>Decode it</b> to push the dark back and keep the light alive.
+      </p>
+      <p class="legend">
+        After each guess you get clues:
+        <b>● gold = right glyph, right place</b> · <span class="p">● violet = right glyph, wrong place</span>.<br/>
+        Reach <b>Day 6 — the Solstice</b> to win. The <b>⚙ Bombe</b> locks one glyph but spends an hour of daylight.
+      </p>
+      <div class="controls" style="margin-top:18px">
+        <button class="act" id="btn-start">Begin the longest day ▸</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Solstice-themed glyph set: distinct color + symbol (colour-blind friendly pairing).
+  const GLYPHS = ["☀️", "🌙", "🔥", "⭐", "🌊", "🌿", "⚡", "❄️"];
+
+  const SOLSTICE_DAY = 6; // reach this day to win — "the longest day"
+
+  const el = (id) => document.getElementById(id);
+  const board = el("board");
+  const palette = el("palette");
+  const msg = el("msg");
+
+  let state = null;
+  let best = Number(localStorage.getItem("solstice-best") || 0);
+  el("hud-best").textContent = best;
+
+  // --- difficulty scales with the day ---
+  function configForDay(day) {
+    const codeLength = Math.min(3 + day, 6);          // 4..6 glyphs
+    const paletteSize = Math.min(5 + Math.floor(day / 2), GLYPHS.length); // 5..8 glyphs
+    const maxGuesses = codeLength + 4;                 // "hours of daylight"
+    return { codeLength, paletteSize, maxGuesses };
+  }
+
+  function newDay(day, carriedScore) {
+    const cfg = configForDay(day);
+    const pool = GLYPHS.slice(0, cfg.paletteSize);
+    const secret = Array.from({ length: cfg.codeLength },
+      () => pool[Math.floor(Math.random() * pool.length)]);
+    state = {
+      day,
+      score: carriedScore,
+      pool,
+      secret,
+      maxGuesses: cfg.maxGuesses,
+      codeLength: cfg.codeLength,
+      guesses: [],          // {glyphs, lock, present}
+      current: [],          // glyphs being assembled
+      over: false,
+    };
+    render();
+  }
+
+  // Mastermind scoring: exact (lock) then colour-only (present).
+  function scoreGuess(guess, secret) {
+    let lock = 0;
+    const sRem = [], gRem = [];
+    for (let i = 0; i < secret.length; i++) {
+      if (guess[i] === secret[i]) lock++;
+      else { sRem.push(secret[i]); gRem.push(guess[i]); }
+    }
+    let present = 0;
+    const counts = {};
+    for (const s of sRem) counts[s] = (counts[s] || 0) + 1;
+    for (const g of gRem) if (counts[g] > 0) { present++; counts[g]--; }
+    return { lock, present };
+  }
+
+  function setNight(t) {
+    document.body.style.setProperty("--night", t.toFixed(3));
+  }
+
+  function render() {
+    const s = state;
+    el("hud-day").textContent = s.day;
+    el("hud-score").textContent = s.score;
+    el("code-len").textContent = s.codeLength;
+
+    const used = s.guesses.length;
+    const remaining = s.maxGuesses - used;
+    const frac = Math.max(0, remaining / s.maxGuesses);
+    el("daylight-bar").style.width = (frac * 100) + "%";
+    setNight(1 - frac);
+
+    // board: past guesses + active row + empty rows
+    board.innerHTML = "";
+    for (let r = 0; r < s.maxGuesses; r++) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const pegs = document.createElement("div");
+      pegs.className = "pegs";
+
+      let glyphs = null, clue = null;
+      if (r < s.guesses.length) {
+        glyphs = s.guesses[r].glyphs;
+        clue = s.guesses[r];
+      } else if (r === s.guesses.length && !s.over) {
+        row.classList.add("active");
+        glyphs = s.current;
+      }
+
+      for (let i = 0; i < s.codeLength; i++) {
+        const peg = document.createElement("div");
+        peg.className = "peg";
+        const g = glyphs && glyphs[i];
+        if (g) { peg.textContent = g; peg.classList.add("filled"); }
+        pegs.appendChild(peg);
+      }
+      row.appendChild(pegs);
+
+      // clue dots
+      const cl = document.createElement("div");
+      cl.className = "clue";
+      const dots = [];
+      if (clue) {
+        for (let i = 0; i < clue.lock; i++) dots.push("lock");
+        for (let i = 0; i < clue.present; i++) dots.push("present");
+      }
+      for (let i = 0; i < s.codeLength; i++) {
+        const d = document.createElement("i");
+        if (dots[i]) d.classList.add(dots[i]);
+        cl.appendChild(d);
+      }
+      row.appendChild(cl);
+      board.appendChild(row);
+    }
+
+    // palette
+    palette.innerHTML = "";
+    s.pool.forEach((g) => {
+      const b = document.createElement("button");
+      b.className = "sym";
+      b.textContent = g;
+      b.onclick = () => addGlyph(g);
+      palette.appendChild(b);
+    });
+
+    el("btn-submit").disabled = s.over || s.current.length !== s.codeLength;
+    el("btn-back").disabled = s.over || s.current.length === 0;
+    el("btn-bombe").disabled = s.over || (s.maxGuesses - s.guesses.length) <= 1;
+  }
+
+  function addGlyph(g) {
+    if (state.over || state.current.length >= state.codeLength) return;
+    state.current.push(g);
+    msg.textContent = "";
+    render();
+  }
+
+  function undo() {
+    if (state.over || !state.current.length) return;
+    state.current.pop();
+    render();
+  }
+
+  // Bombe: Turing's machine — spend an hour of daylight to lock a correct glyph.
+  function bombe() {
+    const s = state;
+    if (s.over || (s.maxGuesses - s.guesses.length) <= 1) return;
+    // find a position not yet correctly revealed in current guess
+    const candidates = [];
+    for (let i = 0; i < s.codeLength; i++) {
+      if (s.current[i] !== s.secret[i]) candidates.push(i);
+    }
+    if (!candidates.length) { msg.textContent = "The Bombe finds nothing left to crack."; return; }
+    const pos = candidates[Math.floor(Math.random() * candidates.length)];
+    while (s.current.length < s.codeLength) s.current.push(null);
+    s.current[pos] = s.secret[pos];
+    // cost: burn a daylight hour (a phantom failed hour)
+    s.guesses.push({ glyphs: Array(s.codeLength).fill(null), lock: 0, present: 0, bombe: true });
+    msg.textContent = `⚙ Bombe locked position ${pos + 1}. It cost an hour of daylight.`;
+    checkDaylight();
+    render();
+  }
+
+  function submit() {
+    const s = state;
+    if (s.over || s.current.length !== s.codeLength || s.current.includes(null)) return;
+    const { lock, present } = scoreGuess(s.current, s.secret);
+    s.guesses.push({ glyphs: s.current.slice(), lock, present });
+    s.current = [];
+
+    if (lock === s.codeLength) {
+      const remaining = s.maxGuesses - s.guesses.length;
+      const bonus = 100 * s.day + 20 * remaining;
+      s.score += bonus;
+      if (s.day >= SOLSTICE_DAY) { render(); return win(); }
+      msg.textContent = `Decoded! +${bonus} light. The day holds. Dawn of Day ${s.day + 1}…`;
+      const nextDay = s.day + 1, carried = s.score;
+      render();
+      setTimeout(() => newDay(nextDay, carried), 1200);
+      return;
+    }
+
+    checkDaylight();
+    render();
+  }
+
+  function checkDaylight() {
+    const s = state;
+    if (s.guesses.length >= s.maxGuesses && !s.over) lose();
+  }
+
+  function win() {
+    state.over = true;
+    setNight(0);
+    if (state.score > best) { best = state.score; localStorage.setItem("solstice-best", best); }
+    el("hud-best").textContent = best;
+    showOverlay(
+      "🌞 The Solstice!",
+      `You held back the dark through all six days and reached the longest day of the year. ` +
+      `Final light: <b>${state.score}</b>.`,
+      "Play again ▸"
+    );
+  }
+
+  function lose() {
+    state.over = true;
+    setNight(1);
+    if (state.score > best) { best = state.score; localStorage.setItem("solstice-best", best); }
+    el("hud-best").textContent = best;
+    const reveal = state.secret.join(" ");
+    showOverlay(
+      "🌑 Night falls",
+      `The daylight ran out on Day ${state.day}. The cipher was <span class="rotorline">${reveal}</span>. ` +
+      `Light gathered: <b>${state.score}</b>.`,
+      "Try again ▸"
+    );
+  }
+
+  function showOverlay(title, body, btnLabel) {
+    el("card-title").textContent = title;
+    el("card-body").innerHTML = body;
+    el("btn-start").textContent = btnLabel;
+    el("overlay").classList.remove("hidden");
+  }
+
+  function start() {
+    el("overlay").classList.add("hidden");
+    newDay(1, 0);
+    msg.textContent = "Pick symbols, then Decode.";
+  }
+
+  // wire up
+  el("btn-submit").onclick = submit;
+  el("btn-back").onclick = undo;
+  el("btn-bombe").onclick = bombe;
+  el("btn-start").onclick = start;
+
+  // keyboard: 1..8 pick glyph, Enter submit, Backspace undo
+  window.addEventListener("keydown", (e) => {
+    if (!state || state.over) {
+      if (e.key === "Enter") start();
+      return;
+    }
+    if (e.key === "Enter") { submit(); e.preventDefault(); }
+    else if (e.key === "Backspace") { undo(); e.preventDefault(); }
+    else if (/^[1-8]$/.test(e.key)) {
+      const idx = Number(e.key) - 1;
+      if (idx < state.pool.length) addGlyph(state.pool[idx]);
+    }
+  });
+
+  // idle sky shimmer before the game starts
+  setNight(0.05);
+})();
+</script>
+</body>
+</html>
