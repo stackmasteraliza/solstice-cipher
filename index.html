@@ -129,8 +129,10 @@
   #tip { position: fixed; z-index: 8; max-width: 320px; width: max-content;
     background: linear-gradient(180deg, rgba(24,28,54,0.97), rgba(14,16,34,0.97));
     border: 2px solid #ffd24a; border-radius: 14px; padding: 14px 16px;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.55); text-align: left; }
+    box-shadow: 0 12px 40px rgba(0,0,0,0.55); text-align: left; cursor: default; }
   #tip.hidden { display: none; }
+  #tipArrow { position: absolute; width: 14px; height: 14px; background: #181c36;
+    border-left: 2px solid #ffd24a; border-top: 2px solid #ffd24a; pointer-events: none; }
   #tipText { font-size: 14.5px; line-height: 1.5; }
   #tipText b { color: #ffd24a; }
   #tipRow { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 12px; }
@@ -285,6 +287,7 @@
 
   <!-- guided practice tooltip -->
   <div id="tip" class="hidden">
+    <div id="tipArrow" style="display:none"></div>
     <div id="tipText"></div>
     <div id="tipRow">
       <span id="tipStep"></span>
@@ -689,20 +692,29 @@
   }
 
   function positionTip() {
-    const tip = $("tip");
+    const tip = $("tip"), arrow = $("tipArrow");
     tip.style.visibility = "hidden"; tip.classList.remove("hidden");
     const tw = tip.offsetWidth, th = tip.offsetHeight;
-    let left, top;
+    let left, top, below = true;
     if (TUT.anchor) {
       const r = TUT.anchor.getBoundingClientRect();
       left = r.left + r.width / 2 - tw / 2;
-      top = r.bottom + 14;
-      if (top + th > innerHeight - 10) top = r.top - th - 14;   // flip above if no room below
+      top = r.bottom + 16;
+      if (top + th > innerHeight - 10) { top = r.top - th - 16; below = false; }  // flip above if no room
+      left = Math.max(10, Math.min(left, innerWidth - tw - 10));
+      top = Math.max(10, Math.min(top, innerHeight - th - 10));
+      // arrow points at the highlighted element
+      arrow.style.display = "block";
+      const ax = Math.max(14, Math.min(r.left + r.width / 2 - left - 8, tw - 30));
+      arrow.style.left = ax + "px";
+      if (below) { arrow.style.top = "-9px"; arrow.style.bottom = "auto"; arrow.style.transform = "rotate(45deg)"; }
+      else { arrow.style.bottom = "-9px"; arrow.style.top = "auto"; arrow.style.transform = "rotate(225deg)"; }
     } else {
       left = innerWidth / 2 - tw / 2; top = innerHeight * 0.62;
+      left = Math.max(10, Math.min(left, innerWidth - tw - 10));
+      top = Math.max(10, Math.min(top, innerHeight - th - 10));
+      arrow.style.display = "none";
     }
-    left = Math.max(10, Math.min(left, innerWidth - tw - 10));
-    top = Math.max(10, Math.min(top, innerHeight - th - 10));
     tip.style.left = left + "px"; tip.style.top = top + "px";
     tip.style.visibility = "visible";
   }
