@@ -101,6 +101,7 @@
   .toggles button { pointer-events: auto; cursor: pointer; font-size: 21px; opacity: 1;
     background: rgba(20,24,48,0.85); border: 1.5px solid rgba(255,210,74,0.55); border-radius: 11px;
     width: 42px; height: 42px; color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    display: grid; place-items: center; line-height: 1; padding: 0;
     transition: transform .1s, border-color .15s, background .15s; }
   .toggles button:hover { background: rgba(40,46,80,0.95); border-color: #ffd24a; transform: translateY(-2px); }
   .toggles button.off { opacity: 0.45; border-color: rgba(255,255,255,0.25); }
@@ -590,15 +591,18 @@
     if (!G.running || G.paused || G.decoding || BB.on || TUT.on) return;
     if (!$("levelup").classList.contains("hidden")) return;
     G.paused = true; $("pause").classList.remove("hidden"); hideCoach(); musicStop();
+    $("pauseBtn").textContent = "▶"; $("pauseBtn").title = "Resume (Esc)";
     blip(330, "sine", 0.1, 0.12);
   }
   function resumeGame() {
     if (!G.paused) return;
     G.paused = false; $("pause").classList.add("hidden"); last = performance.now(); musicStart();
+    $("pauseBtn").textContent = "⏸"; $("pauseBtn").title = "Pause (Esc)";
     blip(523, "sine", 0.1, 0.12);
   }
   function togglePause() { G.paused ? resumeGame() : pauseGame(); }
-  function quitToMenu() { G.paused = false; G.running = false; musicStop(); $("hud").classList.add("hidden"); $("pauseBtn").classList.add("hidden"); toMenu(); }
+  function quitToMenu() { G.paused = false; G.running = false; musicStop(); $("hud").classList.add("hidden");
+    $("pauseBtn").classList.add("hidden"); $("pauseBtn").textContent = "⏸"; toMenu(); }
 
   $("pauseBtn").onclick = (e) => { e.stopPropagation(); togglePause(); };
   $("resumeCta").onclick = (e) => { e.stopPropagation(); resumeGame(); };
@@ -621,7 +625,7 @@
     $("start").classList.add("hidden"); $("over").classList.add("hidden"); $("win").classList.add("hidden");
     $("levelup").classList.add("hidden"); $("decode").classList.add("hidden");
     $("pause").classList.add("hidden"); $("tip").classList.add("hidden"); TUT.on = false;
-    $("hud").classList.remove("hidden"); $("pauseBtn").classList.remove("hidden");
+    $("hud").classList.remove("hidden"); $("pauseBtn").classList.remove("hidden"); $("pauseBtn").textContent = "⏸";
     blip(523, "sine", 0.12); setTimeout(() => blip(784, "sine", 0.16), 90);
     musicStart();
     showCoach("🖱️ <b>Move your mouse</b> to guide your light and gather the glowing motes", 5);
