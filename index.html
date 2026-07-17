@@ -103,6 +103,7 @@
     transition: transform .1s, border-color .15s, background .15s; }
   .toggles button:hover { background: rgba(40,46,80,0.95); border-color: #ffd24a; transform: translateY(-2px); }
   .toggles button.off { opacity: 0.45; border-color: rgba(255,255,255,0.25); }
+  .toggles button.hidden { display: none; }
   .credit { position: fixed; bottom: 8px; left: 0; right: 0; text-align: center;
     font-size: 11px; opacity: 0.4; z-index: 4; pointer-events: none; letter-spacing: 1px; }
 
@@ -190,7 +191,7 @@
   </div>
 
   <div class="toggles">
-    <button id="pauseBtn" title="Pause (Esc)">⏸</button>
+    <button id="pauseBtn" class="hidden" title="Pause (Esc)">⏸</button>
     <button id="music" title="Music on/off">🎵</button>
     <button id="sfx" title="Sound effects on/off">🔊</button>
   </div>
@@ -208,7 +209,7 @@
         <div><span class="ic">⏳</span><span>Grab <b>power-ups</b>: Time Warp, Magnet, Freeze, Sun Fragment</span></div>
         <div><span class="ic">🌑</span><span>Two <b>bosses</b> at days 10 &amp; 20 — bank Novas, then decode the dawn</span></div>
       </div>
-      <div class="how" style="margin-top:8px">Each of the 10 levels has its own task — <span id="startTask"></span></div>
+      <div class="how" style="margin-top:8px">Each of the 20 levels has its own task — <span id="startTask"></span></div>
       <div class="diffs" id="diffs">
         <div class="diff" data-d="easy"><span>EASY</span><small>gentle &amp; forgiving</small></div>
         <div class="diff sel" data-d="normal"><span>NORMAL</span><small>the real deal</small></div>
@@ -249,7 +250,7 @@
       <div class="subtitle" id="lu-story" style="font-style:italic; opacity:0.85">🎉 Brilliant — you held back the dark.</div>
       <div class="big-score" id="lu-score">0</div>
       <div class="result-label">light gathered so far</div>
-      <div class="how" id="lu-next" style="margin-top:14px">Up next: Level 2 of 10</div>
+      <div class="how" id="lu-next" style="margin-top:14px">Up next: Level 2 of 20</div>
       <div class="cta" id="luCta">Begin Level 2 ▸</div>
     </div>
   </div>
@@ -593,7 +594,7 @@
     blip(523, "sine", 0.1, 0.12);
   }
   function togglePause() { G.paused ? resumeGame() : pauseGame(); }
-  function quitToMenu() { G.paused = false; G.running = false; musicStop(); $("hud").classList.add("hidden"); toMenu(); }
+  function quitToMenu() { G.paused = false; G.running = false; musicStop(); $("hud").classList.add("hidden"); $("pauseBtn").classList.add("hidden"); toMenu(); }
 
   $("pauseBtn").onclick = (e) => { e.stopPropagation(); togglePause(); };
   $("resumeCta").onclick = (e) => { e.stopPropagation(); resumeGame(); };
@@ -616,7 +617,7 @@
     $("start").classList.add("hidden"); $("over").classList.add("hidden"); $("win").classList.add("hidden");
     $("levelup").classList.add("hidden"); $("decode").classList.add("hidden");
     $("pause").classList.add("hidden"); $("tip").classList.add("hidden"); TUT.on = false;
-    $("hud").classList.remove("hidden");
+    $("hud").classList.remove("hidden"); $("pauseBtn").classList.remove("hidden");
     blip(523, "sine", 0.12); setTimeout(() => blip(784, "sine", 0.16), 90);
     musicStart();
     showCoach("🖱️ <b>Move your mouse</b> to guide your light and gather the glowing motes", 5);
@@ -772,6 +773,7 @@
 
   function endRun(won) {
     G.running = false; musicStop();
+    $("pauseBtn").classList.add("hidden");
     if (G.score > G.best) { G.best = G.score; localStorage.setItem("solstice-arcade-best", G.best); }
     $("best").textContent = G.best;
     if (won) {
